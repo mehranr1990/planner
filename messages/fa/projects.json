@@ -1,0 +1,63 @@
+{
+  "title": "پروژه‌ها",
+  "sectionPersonal": "پروژه‌های شخصی",
+  "sectionWorkspace": "پروژه‌های {workspace}",
+  "showArchived": "نمایش بایگانی‌شده‌ها",
+  "hideArchived": "پنهان کردن بایگانی‌شده‌ها",
+  "otherSection": "متوقف، تکمیل‌شده و بایگانی‌شده",
+  "emptyTitle": "هنوز پروژه‌ای ندارید",
+  "emptyHint": "پروژه کارهای مرتبط را با یک هدف و یک پایان کنار هم می‌گذارد. برای شروع یکی بسازید.",
+  "new": "پروژهٔ جدید",
+  "create": {
+    "title": "پروژهٔ جدید",
+    "name": "نام",
+    "description": "توضیح",
+    "space": "فضا",
+    "private": "خصوصی — فقط کسانی که اضافه می‌کنم آن را می‌بینند",
+    "color": "رنگ",
+    "submit": "ساخت پروژه"
+  },
+  "status": {
+    "PLANNED": "برنامه‌ریزی‌شده",
+    "ACTIVE": "فعال",
+    "ON_HOLD": "متوقف",
+    "COMPLETED": "تکمیل‌شده",
+    "CANCELLED": "لغوشده"
+  },
+  "health": {
+    "ON_TRACK": "روی روال",
+    "AT_RISK": "در خطر",
+    "OFF_TRACK": "خارج از روال"
+  },
+  "card": {
+    "openTasks": "کارهای باز",
+    "overdue": "عقب‌افتاده",
+    "done": "انجام",
+    "completionAria": "پیشرفت {name}: {percent, number, percent}",
+    "tasksAria": "کارها: {done, number} انجام‌شده، {open, number} باز، {overdue, number} عقب‌افتاده",
+    "meta": "{space} · {status}",
+    "members": "اعضای پروژه",
+    "allocation": "تخصیص کارها",
+    "allocationBadge": "{count, plural, other {# کار باز}}"
+  },
+  "detail": {
+    "back": "بازگشت به پروژه‌ها",
+    "tasks": "کارها",
+    "showCompleted": "نمایش انجام‌شده‌ها",
+    "hideCompleted": "پنهان کردن انجام‌شده‌ها",
+    "emptyTitle": "کار بازی نیست",
+    "emptyHintCanAdd": "نخستین گام را در بالا اضافه کنید.",
+    "emptyHint": "هنوز چیزی اینجا نیست.",
+    "overview": "نمای کلی پروژه",
+    "open": "باز",
+    "overdue": "عقب‌افتاده",
+    "completionAria": "پیشرفت: {percent, number, percent}",
+    "target": "هدف: {date}",
+    "archived": "بایگانی‌شده",
+    "statusLabel": "وضعیت",
+    "healthLabel": "سلامت",
+    "archive": "بایگانی",
+    "restore": "بازگردانی",
+    "membersStrip": "اعضای پروژه"
+  }
+}

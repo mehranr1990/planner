@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+/* Dark mode follows data-theme on <html> (user preference), falling back to the OS. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ─────────────── Semantic tokens (see docs/DESIGN_SYSTEM.md) ─────────────── */
+
+:root {
+  color-scheme: light;
+  --background: #e3e5e9;
+  --background-tint: #d3dae8;
+  --surface: rgb(255 255 255 / 0.55);
+  --surface-secondary: #f1f2f5;
+  --surface-elevated: #fbfbfb;
+  --surface-active: #10141a;
+  --surface-dark: #29292c;
+  --foreground: #10141a;
+  --foreground-muted: #646a73;
+  --foreground-subtle: #8f959e;
+  --foreground-on-active: #ffffff;
+  --foreground-on-dark: #f4f5f7;
+  --border-subtle: rgb(16 20 26 / 0.08);
+  --border-strong: rgb(16 20 26 / 0.16);
+
+  --accent-blue: #6f90cc;
+  --accent-blue-soft: #b9deff;
+  --accent-red: #ce6969;
+  --accent-red-soft: #fd8e8c;
+  --accent-yellow: #e2a24a;
+  --accent-yellow-soft: #ffce87;
+  --accent-green: #4f9e7c;
+  --accent-green-soft: #bfe5d2;
+  --accent-peach-soft: #ffc59e;
+  --accent-slate-soft: #cfd4dc;
+
+  --success: var(--accent-green);
+  --warning: var(--accent-yellow);
+  --danger: var(--accent-red);
+  --focus-ring: #6f90cc;
+
+  --shadow-overlay: 0 24px 64px -16px rgb(16 20 26 / 0.28), 0 2px 8px rgb(16 20 26 / 0.06);
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #0e1116;
+    --background-tint: #121826;
+    --surface: rgb(255 255 255 / 0.04);
+    --surface-secondary: #1a1e25;
+    --surface-elevated: #20252d;
+    --surface-active: #f4f5f7;
+    --surface-dark: #1b1f26;
+    --foreground: #eceef2;
+    --foreground-muted: #9aa1ad;
+    --foreground-subtle: #6c7380;
+    --foreground-on-active: #10141a;
+    --border-subtle: rgb(255 255 255 / 0.08);
+    --border-strong: rgb(255 255 255 / 0.16);
+    --accent-blue: #8eaee6;
+    --accent-blue-soft: #2b3d5c;
+    --accent-red: #e08585;
+    --accent-red-soft: #5a2c30;
+    --accent-yellow: #f0bd70;
+    --accent-yellow-soft: #574320;
+    --accent-green: #74c4a0;
+    --accent-green-soft: #1f4535;
+    --accent-peach-soft: #5a3a26;
+    --accent-slate-soft: #353b45;
+    --shadow-overlay: 0 24px 64px -16px rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0e1116;
+  --background-tint: #121826;
+  --surface: rgb(255 255 255 / 0.04);
+  --surface-secondary: #1a1e25;
+  --surface-elevated: #20252d;
+  --surface-active: #f4f5f7;
+  --surface-dark: #1b1f26;
+  --foreground: #eceef2;
+  --foreground-muted: #9aa1ad;
+  --foreground-subtle: #6c7380;
+  --foreground-on-active: #10141a;
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --accent-blue: #8eaee6;
+  --accent-blue-soft: #2b3d5c;
+  --accent-red: #e08585;
+  --accent-red-soft: #5a2c30;
+  --accent-yellow: #f0bd70;
+  --accent-yellow-soft: #574320;
+  --accent-green: #74c4a0;
+  --accent-green-soft: #1f4535;
+  --accent-peach-soft: #5a3a26;
+  --accent-slate-soft: #353b45;
+  --shadow-overlay: 0 24px 64px -16px rgb(0 0 0 / 0.6);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-active: var(--surface-active);
+  --color-surface-dark: var(--surface-dark);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-foreground-on-active: var(--foreground-on-active);
+  --color-foreground-on-dark: var(--foreground-on-dark);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-soft: var(--accent-blue-soft);
+  --color-accent-red: var(--accent-red);
+  --color-accent-red-soft: var(--accent-red-soft);
+  --color-accent-yellow: var(--accent-yellow);
+  --color-accent-yellow-soft: var(--accent-yellow-soft);
+  --color-accent-green: var(--accent-green);
+  --color-accent-green-soft: var(--accent-green-soft);
+  --color-accent-peach-soft: var(--accent-peach-soft);
+  --color-accent-slate-soft: var(--accent-slate-soft);
+  --color-focus-ring: var(--focus-ring);
+
+  /* Per-direction stack set on <html> by the root layout (both real families before any fallback). */
+  --font-sans: var(--font-stack, ui-sans-serif, system-ui, sans-serif);
+
+  --radius-panel: 32px;
+  --radius-card: 24px;
+  --radius-control: 16px;
+
+  --shadow-overlay: var(--shadow-overlay);
+  --ease-out-expo: var(--ease-out-expo);
+}
+
+/* ─────────────── Base ─────────────── */
+
+html,
+body {
+  min-height: 100%;
+}
+
+/* Canvas colour behind the gradient, so overscroll and full-page captures never show white. */
+html {
+  background: var(--background);
+}
+
+/* Letter-spacing breaks the joins of cursive Arabic-script letters, so tracking utilities are
+   neutralised for Persian. Latin runs inside Persian text lose the tight tracking too, which is
+   acceptable. */
+:root:lang(fa) * {
+  letter-spacing: normal !important;
+}
+
+body {
+  background: linear-gradient(180deg, var(--background) 0%, var(--background) 45%, var(--background-tint) 100%) fixed;
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-blue-soft);
+}
+
+/* Content build-in (video: 60–100ms stagger, translateY(8px) + fade, ~300ms). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@layer utilities {
+  .animate-rise {
+    animation: rise-in 300ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  .animate-overlay {
+    animation: overlay-in 280ms var(--ease-out-expo) both;
+  }
+  .animate-sheet {
+    animation: sheet-in 320ms var(--ease-out-expo) both;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+dialog::backdrop {
+  background: rgb(16 20 26 / 0.18);
+  backdrop-filter: blur(12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}

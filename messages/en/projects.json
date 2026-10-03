@@ -1,0 +1,63 @@
+{
+  "title": "Projects",
+  "sectionPersonal": "Personal projects",
+  "sectionWorkspace": "{workspace} projects",
+  "showArchived": "Show archived",
+  "hideArchived": "Hide archived",
+  "otherSection": "On hold, completed & archived",
+  "emptyTitle": "No projects yet",
+  "emptyHint": "Projects group related tasks with a goal and a finish line. Create one to get started.",
+  "new": "New project",
+  "create": {
+    "title": "New project",
+    "name": "Name",
+    "description": "Description",
+    "space": "Space",
+    "private": "Private — only people I add can see it",
+    "color": "Colour",
+    "submit": "Create project"
+  },
+  "status": {
+    "PLANNED": "Planned",
+    "ACTIVE": "Active",
+    "ON_HOLD": "On hold",
+    "COMPLETED": "Completed",
+    "CANCELLED": "Cancelled"
+  },
+  "health": {
+    "ON_TRACK": "On track",
+    "AT_RISK": "At risk",
+    "OFF_TRACK": "Off track"
+  },
+  "card": {
+    "openTasks": "Open tasks",
+    "overdue": "Overdue",
+    "done": "done",
+    "completionAria": "{name} completion: {percent, number, percent}",
+    "tasksAria": "Tasks: {done, number} done, {open, number} open, {overdue, number} overdue",
+    "meta": "{space} · {status}",
+    "members": "Project members",
+    "allocation": "Task allocation",
+    "allocationBadge": "{count, plural, one {# open task} other {# open tasks}}"
+  },
+  "detail": {
+    "back": "Back to projects",
+    "tasks": "Tasks",
+    "showCompleted": "Show completed",
+    "hideCompleted": "Hide completed",
+    "emptyTitle": "No open tasks",
+    "emptyHintCanAdd": "Add the first step above.",
+    "emptyHint": "Nothing here yet.",
+    "overview": "Project overview",
+    "open": "Open",
+    "overdue": "Overdue",
+    "completionAria": "Completion: {percent, number, percent}",
+    "target": "Target: {date}",
+    "archived": "Archived",
+    "statusLabel": "Status",
+    "healthLabel": "Health",
+    "archive": "Archive",
+    "restore": "Restore",
+    "membersStrip": "Project members"
+  }
+}

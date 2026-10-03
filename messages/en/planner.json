@@ -1,0 +1,69 @@
+{
+  "title": "Planner",
+  "viewsNav": "Planner views",
+  "filterBySpace": "Filter by space",
+  "everything": "Everything",
+  "truncated": "Showing the first {limit, number} tasks. Narrow the view with a space filter.",
+  "views": {
+    "inbox": {
+      "label": "Inbox",
+      "description": "Captured, not yet planned",
+      "emptyTitle": "Inbox zero",
+      "emptyHint": "Anything you capture without a date or project lands here."
+    },
+    "today": {
+      "label": "Today",
+      "description": "Due or starting today, plus anything overdue",
+      "emptyTitle": "Nothing due today",
+      "emptyHint": "Pull something from Upcoming or Inbox, or add a task for today."
+    },
+    "upcoming": {
+      "label": "Upcoming",
+      "description": "Scheduled after today",
+      "emptyTitle": "Nothing scheduled ahead",
+      "emptyHint": "Give tasks a date — try typing “tomorrow” or “fri” in quick add."
+    },
+    "overdue": {
+      "label": "Overdue",
+      "description": "Past their due date",
+      "emptyTitle": "You’re caught up",
+      "emptyHint": "Nothing is past due."
+    },
+    "scheduled": {
+      "label": "Scheduled",
+      "description": "Every open task with a date",
+      "emptyTitle": "No dated tasks",
+      "emptyHint": "Tasks with a due date will show here."
+    },
+    "someday": {
+      "label": "Someday",
+      "description": "Parked for later",
+      "emptyTitle": "Nothing parked",
+      "emptyHint": "Type “someday” in quick add to park an idea without a date."
+    },
+    "completed": {
+      "label": "Completed",
+      "description": "Recently finished",
+      "emptyTitle": "Nothing completed yet",
+      "emptyHint": "Completed tasks are kept here with their history."
+    },
+    "all": {
+      "label": "All tasks",
+      "description": "Everything you own or are assigned",
+      "emptyTitle": "No tasks yet",
+      "emptyHint": "Use quick add above to create your first task."
+    }
+  },
+  "summary": {
+    "label": "Planner summary",
+    "dueToday": "Due today",
+    "overdue": "Overdue",
+    "inInbox": "In inbox"
+  },
+  "help": {
+    "title": "Quick add understands",
+    "someday": "park it without a date",
+    "quotes": "Wrap words in <code>\"quotes\"</code> to keep them literal",
+    "language": "Date, time and priority keywords are recognised in English."
+  }
+}

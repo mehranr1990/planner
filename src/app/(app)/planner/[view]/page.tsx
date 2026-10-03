@@ -1,0 +1,186 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { Metric, PageTitle, Panel, SectionHeader } from "@/components/ui/surface";
+import { getFormat } from "@/i18n/get-format";
+import { cn } from "@/lib/cn";
+import { listProjectOptions } from "@/features/projects/server/queries";
+import { QuickAdd } from "@/features/tasks/components/quick-add";
+import { TaskList } from "@/features/tasks/components/task-list";
+import { TaskSheet } from "@/features/tasks/components/task-sheet";
+import { UndoDeleteBanner } from "@/features/tasks/components/undo-delete-banner";
+import { isPlannerView, PLANNER_VIEWS, type PlannerScopeFilter } from "@/features/tasks/domain/planner-views";
+import { creatableContexts, defaultCreateContext, parseScopeFilter } from "@/features/tasks/server/contexts";
+import { getPlannerCounts, getPlannerTasks, getTaskDetail } from "@/features/tasks/server/queries";
+import { getViewer } from "@/server/context";
+
+export async function generateMetadata({ params }: PageProps<"/planner/[view]">): Promise<Metadata> {
+  const { view } = await params;
+  const t = await getTranslations("planner");
+  return { title: isPlannerView(view) ? t(`views.${view}.label`) : t("title") };
+}
+
+function scopeParam(filter: PlannerScopeFilter) {
+  return filter.kind === "all" ? "" : filter.kind === "personal" ? "personal" : filter.workspaceId;
+}
+
+/** Quick-add syntax tokens. These are parser vocabulary (English), not UI copy, so they aren't translated. */
+const SYNTAX = [
+  ["today", "tomorrow", "fri", "next week"],
+  ["9am", "at 14:30"],
+  ["!high", "!urgent", "!low"],
+] as const;
+
+export default async function PlannerPage({ params, searchParams }: PageProps<"/planner/[view]">) {
+  const { view } = await params;
+  if (!isPlannerView(view)) notFound();
+  const sp = await searchParams;
+  const viewer = await getViewer();
+  const [t, tc, f] = await Promise.all([getTranslations("planner"), getTranslations("common"), getFormat()]);
+  const filter = parseScopeFilter(viewer, sp.scope);
+  const taskId = typeof sp.task === "string" ? sp.task : null;
+  const deletedId = typeof sp.deleted === "string" ? sp.deleted : null;
+
+  const [{ today, tasks, truncated }, counts, detail, projects] = await Promise.all([
+    getPlannerTasks(viewer, view, filter),
+    getPlannerCounts(viewer, filter),
+    taskId ? getTaskDetail(viewer, taskId) : null,
+    taskId ? listProjectOptions(viewer) : [],
+  ]);
+
+  const scope = scopeParam(filter);
+  const withScope = (path: string) => (scope ? `${path}?scope=${scope}` : path);
+  const badge: Partial<Record<string, number>> = { inbox: counts.inbox, today: counts.today, overdue: counts.overdue };
+  const scopes = [
+    { value: "", label: t("everything") },
+    { value: "personal", label: tc("personal") },
+    ...viewer.workspaces.map((w) => ({ value: w.id, label: w.name })),
+  ];
+
+  return (
+    <>
+      <PageTitle>{t("title")}</PageTitle>
+
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <Panel aria-labelledby="view-heading">
+          {/* Reference panel header: section title at the start, selectable pills centred at the top. */}
+          <div className="mb-4 flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-4">
+            <SectionHeader className="mb-0 min-w-0" title={<span id="view-heading">{t(`views.${view}.label`)}</span>} count={tasks.length} />
+            <nav aria-label={t("viewsNav")} className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+              <ul className="flex w-max items-center gap-1.5">
+                {PLANNER_VIEWS.map((v) => {
+                  const active = v === view;
+                  const n = badge[v];
+                  return (
+                    <li key={v}>
+                      <Link
+                        href={withScope(`/planner/${v}`)}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium whitespace-nowrap ring-1 transition-colors",
+                          active
+                            ? "bg-surface-active text-foreground-on-active ring-surface-active"
+                            : "bg-surface-elevated text-foreground-muted ring-border-subtle hover:text-foreground hover:ring-border-strong",
+                        )}
+                      >
+                        {t(`views.${v}.label`)}
+                        {n !== undefined && n > 0 && (
+                          <span
+                            className={cn(
+                              "tabular rounded-full px-1.5 text-[11px]",
+                              active ? "bg-white/15" : v === "overdue" ? "bg-accent-red-soft text-foreground" : "bg-surface-secondary",
+                            )}
+                          >
+                            {f.number(n)}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+            <div aria-hidden className="hidden lg:block" />
+          </div>
+          <p className="mb-4 text-[12.5px] text-foreground-muted">{t(`views.${view}.description`)}</p>
+          {viewer.workspaces.length > 0 && (
+            <div className="scrollbar-none -mx-1 mb-4 flex gap-1 overflow-x-auto px-1" role="group" aria-label={t("filterBySpace")}>
+              {scopes.map((s) => (
+                <Link
+                  key={s.value || "all"}
+                  href={s.value ? `/planner/${view}?scope=${s.value}` : `/planner/${view}`}
+                  aria-current={s.value === scope ? "true" : undefined}
+                  dir="auto"
+                  className={cn(
+                    "h-8 shrink-0 rounded-full px-3 text-[12.5px] leading-8 ring-1 transition-colors",
+                    s.value === scope ? "bg-surface-elevated ring-border-strong" : "text-foreground-muted ring-transparent hover:ring-border-subtle",
+                  )}
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </div>
+          )}
+          {view !== "completed" && (
+            <div className="mb-3">
+              <QuickAdd
+                today={today}
+                contexts={creatableContexts(viewer, tc("personal"))}
+                defaultContext={filter.kind === "workspace" ? filter.workspaceId : filter.kind === "personal" ? "personal" : defaultCreateContext(viewer)}
+                view={view}
+              />
+            </div>
+          )}
+          <TaskList
+            view={view}
+            tasks={tasks}
+            today={today}
+            timezone={viewer.user.timezone}
+            showContext={filter.kind === "all" && viewer.workspaces.length > 0}
+            empty={{ title: t(`views.${view}.emptyTitle`), hint: t(`views.${view}.emptyHint`) }}
+          />
+          {truncated && <p className="mt-4 px-3 text-[12.5px] text-foreground-muted">{t("truncated", { limit: 200 })}</p>}
+        </Panel>
+
+        <aside aria-label={t("summary.label")} className="hidden flex-col gap-4 xl:flex">
+          <Panel>
+            <p className="text-[12.5px] text-foreground-muted" data-volatile>
+              {f.date(today, { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-5">
+              <Metric value={f.number(counts.today)} label={t("summary.dueToday")} />
+              <Metric value={f.number(counts.overdue)} label={t("summary.overdue")} />
+              <Metric value={f.number(counts.inbox)} label={t("summary.inInbox")} />
+            </div>
+          </Panel>
+          <Panel className="text-[12.5px] leading-6 text-foreground-muted">
+            <p className="mb-2 font-medium text-foreground">{t("help.title")}</p>
+            <ul className="flex flex-col gap-1">
+              {SYNTAX.map((group, i) => (
+                <li key={i} className="flex flex-wrap gap-x-2" dir="ltr">
+                  {group.map((token) => (
+                    <code key={token} className="text-foreground">
+                      {token}
+                    </code>
+                  ))}
+                </li>
+              ))}
+              <li>
+                <code className="text-foreground" dir="ltr">
+                  someday
+                </code>{" "}
+                — {t("help.someday")}
+              </li>
+              <li>{t.rich("help.quotes", { code: (chunks) => <code className="text-foreground">{chunks}</code> })}</li>
+            </ul>
+            <p className="mt-3 text-[12px] text-foreground-subtle">{t("help.language")}</p>
+          </Panel>
+        </aside>
+      </div>
+
+      {detail && <TaskSheet key={detail.id} task={detail} projects={projects} timezone={viewer.user.timezone} />}
+      {deletedId && <UndoDeleteBanner taskId={deletedId} />}
+    </>
+  );
+}

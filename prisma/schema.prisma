@@ -1,0 +1,693 @@
+// Core schema — Phase 1/2 (identity, tenancy, permissions, projects, task engine).
+// Conventions (see docs/DATA_MODEL.md):
+//  - Every scoped entity carries `scope` + nullable `workspaceId`; a CHECK constraint in the
+//    migration enforces PERSONAL ⇔ workspaceId IS NULL.
+//  - History-bearing records are archived/soft-deleted, never cascaded away.
+//  - Table/column names are snake_case in the database.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Scope {
+  PERSONAL
+  WORKSPACE
+}
+
+enum ThemePreference {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+enum SystemRole {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+  GUEST
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum TeamRole {
+  LEAD
+  MEMBER
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectHealth {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+}
+
+enum ProjectVisibility {
+  PRIVATE // project members only
+  WORKSPACE // every active workspace member (excluding guests)
+}
+
+enum ProjectRole {
+  LEAD
+  EDITOR
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+enum Priority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RecurrenceMode {
+  FIXED_SCHEDULE // occurrences follow the calendar regardless of completion
+  AFTER_COMPLETION // next occurrence is computed from the completion date
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMMENTED
+  MENTIONED
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  INVITATION
+  WORKSPACE_ROLE_CHANGED
+}
+
+// ─────────────────────────── Identity ───────────────────────────
+
+model User {
+  id                String          @id @default(cuid())
+  email             String          @unique // stored lower-cased
+  name              String
+  avatarUrl         String?         @map("avatar_url")
+  passwordHash      String          @map("password_hash")
+  timezone          String          @default("UTC")
+  locale            String          @default("en")
+  theme             ThemePreference @default(SYSTEM)
+  weekStartsOn      Int             @default(1) @map("week_starts_on") // 0 = Sunday … 6 = Saturday
+  activeWorkspaceId String?         @map("active_workspace_id")
+  deactivatedAt     DateTime?       @map("deactivated_at") @db.Timestamptz(3)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  activeWorkspace         Workspace?               @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
+  sessions                Session[]
+  memberships             Membership[]
+  createdWorkspaces       Workspace[]              @relation("WorkspaceCreator")
+  teamMemberships         TeamMember[]
+  invitationsSent         Invitation[]             @relation("InvitationInviter")
+  invitationsAccepted     Invitation[]             @relation("InvitationAcceptor")
+  ownedAreas              Area[]
+  ownedProjects           Project[]                @relation("ProjectOwner")
+  createdProjects         Project[]                @relation("ProjectCreator")
+  projectMemberships      ProjectMember[]
+  ownedTasks              Task[]                   @relation("TaskOwner")
+  createdTasks            Task[]                   @relation("TaskCreator")
+  completedTasks          Task[]                   @relation("TaskCompleter")
+  taskAssignments         TaskAssignee[]           @relation("Assignee")
+  taskAssignmentsMade     TaskAssignee[]           @relation("Assigner")
+  watchedTasks            TaskWatcher[]
+  dependenciesCreated     TaskDependency[]
+  recurrenceSeries        RecurrenceSeries[]
+  labels                  Label[]
+  comments                Comment[]
+  activities              Activity[]
+  auditEvents             AuditEvent[]
+  notifications           Notification[]           @relation("NotificationRecipient")
+  notificationsCaused     Notification[]           @relation("NotificationActor")
+  notificationPreferences NotificationPreference[]
+  savedViews              SavedView[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique @map("token_hash") // SHA-256 of the cookie token; raw token never stored
+  userId     String   @map("user_id")
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model NotificationPreference {
+  userId   String  @map("user_id")
+  category String // NotificationType or a category group key
+  channel  String // "in_app" | "email" | "push"
+  enabled  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, category, channel])
+  @@map("notification_preferences")
+}
+
+// ─────────────────────────── Tenancy ────────────────────────────
+
+model Workspace {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  iconUrl     String?   @map("icon_url")
+  timezone    String    @default("UTC")
+  createdById String    @map("created_by_id")
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdBy        User               @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  activeFor        User[]             @relation("ActiveWorkspace")
+  memberships      Membership[]
+  customRoles      WorkspaceRole[]
+  teams            Team[]
+  invitations      Invitation[]
+  areas            Area[]
+  projects         Project[]
+  tasks            Task[]
+  recurrenceSeries RecurrenceSeries[]
+  labels           Label[]
+  comments         Comment[]
+  activities       Activity[]
+  auditEvents      AuditEvent[]
+  notifications    Notification[]
+  savedViews       SavedView[]
+
+  @@map("workspaces")
+}
+
+/// Custom role: a named capability set. Base roles are defined in code (src/server/permissions).
+model WorkspaceRole {
+  id           String     @id @default(cuid())
+  workspaceId  String     @map("workspace_id")
+  name         String
+  baseRole     SystemRole @map("base_role") // used for role-rank comparisons (who may manage whom)
+  capabilities String[]
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+
+  @@unique([workspaceId, name])
+  @@map("workspace_roles")
+}
+
+model Membership {
+  id            String           @id @default(cuid())
+  workspaceId   String           @map("workspace_id")
+  userId        String           @map("user_id")
+  role          SystemRole       @default(MEMBER)
+  customRoleId  String?          @map("custom_role_id")
+  status        MembershipStatus @default(ACTIVE)
+  joinedAt      DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
+  deactivatedAt DateTime?        @map("deactivated_at") @db.Timestamptz(3)
+
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  customRole WorkspaceRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@map("memberships")
+}
+
+model Team {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  name        String
+  description String?
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   TeamMember[]
+
+  @@unique([workspaceId, name])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId String   @map("team_id")
+  userId String   @map("user_id")
+  role   TeamRole @default(MEMBER)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@map("team_members")
+}
+
+model Invitation {
+  id           String           @id @default(cuid())
+  workspaceId  String           @map("workspace_id")
+  email        String
+  role         SystemRole       @default(MEMBER)
+  tokenHash    String           @unique @map("token_hash")
+  status       InvitationStatus @default(PENDING)
+  invitedById  String           @map("invited_by_id")
+  acceptedById String?          @map("accepted_by_id")
+  expiresAt    DateTime         @map("expires_at") @db.Timestamptz(3)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  respondedAt  DateTime?        @map("responded_at") @db.Timestamptz(3)
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy  User      @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy User?     @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status])
+  @@index([email, status])
+  @@map("invitations")
+}
+
+// ─────────────────────── Areas & projects ───────────────────────
+
+/// Life/work area (e.g. "Health", "Engineering"). Groups projects and loose tasks.
+model Area {
+  id          String    @id @default(cuid())
+  scope       Scope
+  workspaceId String?   @map("workspace_id")
+  ownerId     String    @map("owner_id")
+  name        String
+  color       String    @default("blue")
+  sortOrder   Float     @default(0) @map("sort_order")
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  projects  Project[]
+  tasks     Task[]
+
+  @@index([ownerId, scope])
+  @@index([workspaceId])
+  @@map("areas")
+}
+
+model Project {
+  id          String            @id @default(cuid())
+  scope       Scope
+  workspaceId String?           @map("workspace_id")
+  ownerId     String            @map("owner_id")
+  createdById String            @map("created_by_id")
+  areaId      String?           @map("area_id")
+  name        String
+  description String?
+  icon        String?
+  color       String            @default("blue")
+  status      ProjectStatus     @default(ACTIVE)
+  health      ProjectHealth     @default(ON_TRACK)
+  priority    Priority          @default(NONE)
+  visibility  ProjectVisibility @default(PRIVATE)
+  startOn     DateTime?         @map("start_on") @db.Date
+  targetOn    DateTime?         @map("target_on") @db.Date
+  archivedAt  DateTime?         @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy User             @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  area      Area?            @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  members   ProjectMember[]
+  sections  ProjectSection[]
+  tasks     Task[]
+  comments  Comment[]
+
+  @@index([workspaceId, status])
+  @@index([ownerId, scope])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String      @map("project_id")
+  userId    String      @map("user_id")
+  role      ProjectRole @default(EDITOR)
+  addedAt   DateTime    @default(now()) @map("added_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectSection {
+  id         String    @id @default(cuid())
+  projectId  String    @map("project_id")
+  name       String
+  sortOrder  Float     @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId, sortOrder])
+  @@map("project_sections")
+}
+
+// ───────────────────────── Task engine ──────────────────────────
+
+/// Scheduling rule (see src/features/tasks/domain/schedule.ts):
+///  - all-day:  isAllDay = true,  dueOn set,  dueAt null
+///  - timed:    isAllDay = false, dueAt set (UTC instant), dueOn = local date of dueAt in `timezone`
+/// dueOn is always populated when the task has any due date, so planner queries use one index.
+model Task {
+  id               String     @id @default(cuid())
+  scope            Scope
+  workspaceId      String?    @map("workspace_id")
+  ownerId          String     @map("owner_id")
+  createdById      String     @map("created_by_id")
+  projectId        String?    @map("project_id")
+  sectionId        String?    @map("section_id")
+  areaId           String?    @map("area_id")
+  parentId         String?    @map("parent_id")
+  title            String
+  description      String? // plain text in Phase 2; rich text + sanitizer arrives with Docs (Phase 10)
+  status           TaskStatus @default(TODO)
+  priority         Priority   @default(NONE)
+  isAllDay         Boolean    @default(true) @map("is_all_day")
+  timezone         String? // IANA tz the timed fields were entered in
+  startOn          DateTime?  @map("start_on") @db.Date
+  startAt          DateTime?  @map("start_at") @db.Timestamptz(3)
+  dueOn            DateTime?  @map("due_on") @db.Date
+  dueAt            DateTime?  @map("due_at") @db.Timestamptz(3)
+  isSomeday        Boolean    @default(false) @map("is_someday")
+  estimateMinutes  Int?       @map("estimate_minutes")
+  sortOrder        Float      @default(0) @map("sort_order")
+  completedAt      DateTime?  @map("completed_at") @db.Timestamptz(3)
+  completedById    String?    @map("completed_by_id")
+  archivedAt       DateTime?  @map("archived_at") @db.Timestamptz(3)
+  deletedAt        DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  version          Int        @default(1) // optimistic concurrency (offline/conflict handling)
+  seriesId         String?    @map("series_id")
+  occurrenceOn     DateTime?  @map("occurrence_on") @db.Date
+  clientMutationId String?    @map("client_mutation_id") // idempotent create (double submit / retry)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace   Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User              @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy   User              @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  completedBy User?             @relation("TaskCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  section     ProjectSection?   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  area        Area?             @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  parent      Task?             @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]            @relation("Subtasks")
+  series      RecurrenceSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  assignees   TaskAssignee[]
+  watchers    TaskWatcher[]
+  blocking    TaskDependency[]  @relation("Blocking")
+  blockedBy   TaskDependency[]  @relation("Blocked")
+  checklist   ChecklistItem[]
+  labels      TaskLabel[]
+  comments    Comment[]
+
+  @@unique([seriesId, occurrenceOn]) // recurrence duplication guard
+  @@unique([createdById, clientMutationId])
+  @@index([ownerId, scope, status, dueOn])
+  @@index([workspaceId, status, dueOn])
+  @@index([projectId, sectionId, sortOrder])
+  @@index([parentId])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  taskId       String   @map("task_id")
+  userId       String   @map("user_id")
+  assignedById String   @map("assigned_by_id")
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User @relation("Assignee", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User @relation("Assigner", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+model TaskWatcher {
+  taskId String @map("task_id")
+  userId String @map("user_id")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("task_watchers")
+}
+
+/// blockingTask must finish before blockedTask. Cycles are rejected in the domain layer;
+/// self-dependency is rejected by a CHECK constraint.
+model TaskDependency {
+  blockingTaskId String   @map("blocking_task_id")
+  blockedTaskId  String   @map("blocked_task_id")
+  createdById    String   @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  blockingTask Task @relation("Blocking", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+  blockedTask  Task @relation("Blocked", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+  createdBy    User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@id([blockingTaskId, blockedTaskId])
+  @@index([blockedTaskId])
+  @@map("task_dependencies")
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  taskId      String    @map("task_id")
+  title       String
+  isDone      Boolean   @default(false) @map("is_done")
+  sortOrder   Float     @default(0) @map("sort_order")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, sortOrder])
+  @@map("checklist_items")
+}
+
+/// A recurring task definition. Each occurrence is its own Task row (seriesId + occurrenceOn).
+model RecurrenceSeries {
+  id               String              @id @default(cuid())
+  scope            Scope
+  workspaceId      String?             @map("workspace_id")
+  ownerId          String              @map("owner_id")
+  frequency        RecurrenceFrequency
+  interval         Int                 @default(1)
+  byWeekday        Int[]               @map("by_weekday") // 0 = Sunday … 6 = Saturday
+  byMonthDay       Int[]               @map("by_month_day") // 1…31, -1 = last day
+  mode             RecurrenceMode      @default(FIXED_SCHEDULE)
+  timezone         String
+  startsOn         DateTime            @map("starts_on") @db.Date
+  untilOn          DateTime?           @map("until_on") @db.Date
+  maxCount         Int?                @map("max_count")
+  timeOfDay        Int?                @map("time_of_day") // minutes after local midnight; null = all-day
+  template         Json // title, description, priority, projectId, labels … copied into each occurrence
+  generatedCount   Int                 @default(0) @map("generated_count")
+  lastOccurrenceOn DateTime?           @map("last_occurrence_on") @db.Date
+  endedAt          DateTime?           @map("ended_at") @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  tasks     Task[]
+
+  @@index([ownerId, endedAt])
+  @@map("recurrence_series")
+}
+
+model Label {
+  id          String    @id @default(cuid())
+  scope       Scope
+  workspaceId String?   @map("workspace_id")
+  ownerId     String    @map("owner_id")
+  name        String
+  color       String    @default("blue")
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace?  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  tasks     TaskLabel[]
+
+  // Uniqueness of name per personal owner / per workspace: partial unique indexes in migration.
+  @@index([ownerId, scope])
+  @@index([workspaceId])
+  @@map("labels")
+}
+
+model TaskLabel {
+  taskId  String @map("task_id")
+  labelId String @map("label_id")
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@index([labelId])
+  @@map("task_labels")
+}
+
+// ──────────────────── Collaboration & history ────────────────────
+
+/// Exactly one parent FK is set (CHECK constraint). New commentable entities add a nullable FK.
+model Comment {
+  id          String    @id @default(cuid())
+  workspaceId String?   @map("workspace_id")
+  authorId    String    @map("author_id")
+  taskId      String?   @map("task_id")
+  projectId   String?   @map("project_id")
+  replyToId   String?   @map("reply_to_id")
+  body        String
+  editedAt    DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3) // body retained for audit, hidden in UI
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  task      Task?      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  replyTo   Comment?   @relation("Replies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Comment[]  @relation("Replies")
+
+  @@index([taskId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("comments")
+}
+
+/// Append-only, user-facing history ("Alex completed this task").
+/// Polymorphic by design: history must outlive the entity it describes.
+model Activity {
+  id          String   @id @default(cuid())
+  workspaceId String?  @map("workspace_id")
+  actorId     String?  @map("actor_id")
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  action      String
+  data        Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("activities")
+}
+
+/// Append-only, security/compliance history (role changes, removals, …). Never editable.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  actorId     String?  @map("actor_id")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id")
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor     User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_events")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  recipientId String           @map("recipient_id")
+  workspaceId String?          @map("workspace_id")
+  actorId     String?          @map("actor_id")
+  type        NotificationType
+  entityType  String           @map("entity_type")
+  entityId    String           @map("entity_id")
+  title       String
+  deepLink    String           @map("deep_link") // app-relative path only
+  dedupeKey   String?          @unique @map("dedupe_key")
+  readAt      DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recipient User       @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?      @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Saved filter/sort/group configuration for a module view (planner, project list, …).
+model SavedView {
+  id          String   @id @default(cuid())
+  ownerId     String   @map("owner_id")
+  workspaceId String?  @map("workspace_id")
+  module      String
+  name        String
+  config      Json
+  sortOrder   Float    @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, module])
+  @@map("saved_views")
+}

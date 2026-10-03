@@ -1,0 +1,40 @@
+{
+  "brand": "planner",
+  "appDescription": "Personal and company productivity — plans, tasks and projects in one place.",
+  "skipToContent": "Skip to content",
+  "you": "You",
+  "personal": "Personal",
+  "members": "{count, plural, one {# member} other {# members}}",
+  "actions": {
+    "close": "Close",
+    "retry": "Try again",
+    "reload": "Reload",
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "goHome": "Go home",
+    "cancel": "Cancel"
+  },
+  "states": {
+    "loading": "Loading",
+    "errorTitle": "Something went wrong",
+    "errorBody": "This page couldn’t load. Your data is safe — try again in a moment.",
+    "notFoundTitle": "Not available",
+    "notFoundBody": "This page doesn’t exist or you don’t have access to it."
+  },
+  "dates": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "yesterday": "Yesterday"
+  },
+  "colors": {
+    "blue": "Blue",
+    "yellow": "Yellow",
+    "peach": "Peach",
+    "red": "Red",
+    "green": "Green",
+    "slate": "Slate"
+  },
+  "people": {
+    "overflow": "{count, plural, one {# more person} other {# more people}}"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "quickAdd": {
+    "label": "New task",
+    "placeholder": "Add a task — try “Pay rent tomorrow 9am !high”",
+    "placeholderProject": "Add a task to {project}",
+    "submit": "Add task",
+    "space": "Space",
+    "someday": "someday"
+  },
+  "priority": {
+    "NONE": "None",
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High",
+    "URGENT": "Urgent"
+  },
+  "groups": {
+    "overdue": "Overdue",
+    "today": "Today",
+    "open": "Open",
+    "done": "Done",
+    "noDate": "No date"
+  },
+  "row": {
+    "complete": "Complete “{title}”",
+    "reopen": "Reopen “{title}”",
+    "repeats": "Repeats",
+    "someday": "Someday",
+    "subtasks": "{count, plural, one {# subtask} other {# subtasks}}",
+    "checklist": "Checklist {done, number} of {total, number}",
+    "assignees": "Assignees"
+  },
+  "repeat": {
+    "none": "Doesn’t repeat",
+    "daily": "Daily",
+    "weekdays": "Weekdays",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly"
+  },
+  "sheet": {
+    "details": "Task details",
+    "title": "Title",
+    "notes": "Notes",
+    "notesPlaceholder": "Add details…",
+    "dueDate": "Due date",
+    "time": "Time",
+    "timeHint": "Leave empty for all-day",
+    "priority": "Priority",
+    "project": "Project",
+    "noProject": "No project",
+    "someday": "Park for someday",
+    "save": "Save changes",
+    "saved": "Saved",
+    "complete": "Complete",
+    "reopen": "Reopen",
+    "completedChip": "Completed",
+    "repeatsChip": "Repeats {preset, select, daily {daily} weekdays {on weekdays} weekly {weekly} monthly {monthly} yearly {yearly} other {on a custom schedule}}",
+    "repeat": "Repeat",
+    "repeatNeedsDate": "Set a due date to make this task repeat.",
+    "afterCompletion": "Schedule the next one from when I complete it",
+    "checklist": "Checklist",
+    "checklistNew": "New checklist item",
+    "checklistPlaceholder": "Add an item",
+    "checklistAdd": "Add checklist item",
+    "activity": "Activity",
+    "delete": "Delete task",
+    "createdBy": "Created by {name}",
+    "someone": "Someone",
+    "assignees": "Assignees"
+  },
+  "activity": {
+    "created": "<actor>{name}</actor> created this task",
+    "updated": "<actor>{name}</actor> edited this task",
+    "completed": "<actor>{name}</actor> completed this task",
+    "reopened": "<actor>{name}</actor> reopened this task",
+    "deleted": "<actor>{name}</actor> deleted this task",
+    "restored": "<actor>{name}</actor> restored this task",
+    "recurred": "<actor>{name}</actor> created this occurrence",
+    "recurrence_set": "<actor>{name}</actor> set it to repeat",
+    "recurrence_removed": "<actor>{name}</actor> stopped it repeating",
+    "dependency_added": "<actor>{name}</actor> added a dependency",
+    "other": "<actor>{name}</actor> changed this task"
+  },
+  "deletedBanner": "Task deleted"
+}

@@ -1,0 +1,23 @@
+{
+  "main": "Main",
+  "home": "Home",
+  "planner": "Planner",
+  "projects": "Projects",
+  "team": "Team",
+  "settings": "Settings",
+  "homeLink": "Planner home",
+  "quickAdd": "Quick add task",
+  "accountMenu": "Account menu",
+  "signOut": "Sign out",
+  "language": "Language",
+  "theme": {
+    "group": "Theme",
+    "dark": "Dark theme",
+    "light": "Light theme"
+  },
+  "context": {
+    "change": "Context: {name}. Change context",
+    "current": "Current",
+    "newWorkspace": "New workspace"
+  }
+}

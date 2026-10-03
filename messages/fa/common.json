@@ -1,0 +1,40 @@
+{
+  "brand": "planner",
+  "appDescription": "بهره‌وری شخصی و سازمانی — برنامه‌ها، کارها و پروژه‌ها در یک جا.",
+  "skipToContent": "رفتن به محتوا",
+  "you": "شما",
+  "personal": "شخصی",
+  "members": "{count, plural, other {# عضو}}",
+  "actions": {
+    "close": "بستن",
+    "retry": "تلاش دوباره",
+    "reload": "بارگذاری دوباره",
+    "undo": "واگرد",
+    "dismiss": "بستن",
+    "goHome": "رفتن به خانه",
+    "cancel": "انصراف"
+  },
+  "states": {
+    "loading": "در حال بارگذاری",
+    "errorTitle": "مشکلی پیش آمد",
+    "errorBody": "این صفحه بارگذاری نشد. داده‌های شما سالم است — کمی بعد دوباره امتحان کنید.",
+    "notFoundTitle": "در دسترس نیست",
+    "notFoundBody": "این صفحه وجود ندارد یا به آن دسترسی ندارید."
+  },
+  "dates": {
+    "today": "امروز",
+    "tomorrow": "فردا",
+    "yesterday": "دیروز"
+  },
+  "colors": {
+    "blue": "آبی",
+    "yellow": "زرد",
+    "peach": "هلویی",
+    "red": "قرمز",
+    "green": "سبز",
+    "slate": "خاکستری"
+  },
+  "people": {
+    "overflow": "{count, plural, other {# نفر دیگر}}"
+  }
+}

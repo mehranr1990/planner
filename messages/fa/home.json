@@ -1,0 +1,28 @@
+{
+  "metaTitle": "خانه",
+  "greeting": {
+    "morning": "صبح بخیر، {name}",
+    "afternoon": "عصر بخیر، {name}",
+    "evening": "شب بخیر، {name}"
+  },
+  "today": "امروز",
+  "openToday": "باز کردن «امروز» در برنامه‌ریز",
+  "quickAddPlaceholder": "امروز چه کاری باید انجام شود؟",
+  "emptyTitle": "روزی آرام",
+  "emptyHint": "امروز کاری موعد ندارد. چیزی در بالا اضافه کنید یا در «پیش‌رو» برنامه بریزید.",
+  "moreInToday": "{count, plural, other {# مورد دیگر در امروز ←}}",
+  "nextUp": "کار بعدی",
+  "nothingPressing": "کار فوری‌ای نیست. از این فرصت لذت ببرید.",
+  "openTask": "باز کردن کار",
+  "metrics": {
+    "today": "امروز",
+    "overdue": "عقب‌افتاده",
+    "inbox": "صندوق"
+  },
+  "projectsPersonal": "پروژه‌های شما",
+  "projectsWorkspace": "پروژه‌های {workspace}",
+  "allProjects": "همهٔ پروژه‌ها",
+  "emptyProjectsTitle": "هنوز پروژه‌ای ندارید",
+  "emptyProjectsHint": "کارهای مرتبط را در یک پروژه جمع کنید تا پیشرفت را دنبال کنید.",
+  "createProject": "ساخت پروژه"
+}

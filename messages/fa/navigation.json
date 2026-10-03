@@ -1,0 +1,23 @@
+{
+  "main": "اصلی",
+  "home": "خانه",
+  "planner": "برنامه‌ریز",
+  "projects": "پروژه‌ها",
+  "team": "تیم",
+  "settings": "تنظیمات",
+  "homeLink": "خانهٔ planner",
+  "quickAdd": "افزودن سریع کار",
+  "accountMenu": "منوی حساب",
+  "signOut": "خروج",
+  "language": "زبان",
+  "theme": {
+    "group": "پوسته",
+    "dark": "پوستهٔ تیره",
+    "light": "پوستهٔ روشن"
+  },
+  "context": {
+    "change": "فضا: {name}. تغییر فضا",
+    "current": "فعلی",
+    "newWorkspace": "فضای کاری جدید"
+  }
+}

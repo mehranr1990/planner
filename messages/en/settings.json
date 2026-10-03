@@ -1,0 +1,38 @@
+{
+  "metaTitle": "Settings",
+  "title": "Settings",
+  "prefs": {
+    "heading": "Profile & preferences",
+    "name": "Name",
+    "timezone": "Timezone",
+    "timezoneHint": "Used for Today, due times and recurring tasks",
+    "weekStart": "Week starts on",
+    "weekdays": {
+      "1": "Monday",
+      "0": "Sunday",
+      "6": "Saturday"
+    },
+    "appearance": "Appearance",
+    "themes": {
+      "SYSTEM": "Match system",
+      "LIGHT": "Light",
+      "DARK": "Dark"
+    },
+    "language": "Language",
+    "languageHint": "Changes the interface language. Your own content stays as you wrote it.",
+    "save": "Save preferences",
+    "saved": "Preferences saved"
+  },
+  "workspaces": {
+    "heading": "Workspaces",
+    "active": "Active",
+    "name": "Workspace name",
+    "placeholder": "Acme Studio",
+    "create": "Create workspace",
+    "created": "Workspace created — you’re now working in it"
+  },
+  "account": {
+    "heading": "Account",
+    "signedInAs": "Signed in as <value>{email}</value>. Security, notifications and connected services arrive in later phases."
+  }
+}

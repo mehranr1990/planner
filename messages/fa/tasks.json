@@ -1,0 +1,86 @@
+{
+  "quickAdd": {
+    "label": "کار جدید",
+    "placeholder": "افزودن کار — مثلاً «Pay rent tomorrow 9am !high»",
+    "placeholderProject": "افزودن کار به {project}",
+    "submit": "افزودن کار",
+    "space": "فضا",
+    "someday": "روزی"
+  },
+  "priority": {
+    "NONE": "هیچ",
+    "LOW": "کم",
+    "MEDIUM": "متوسط",
+    "HIGH": "زیاد",
+    "URGENT": "فوری"
+  },
+  "groups": {
+    "overdue": "عقب‌افتاده",
+    "today": "امروز",
+    "open": "باز",
+    "done": "انجام‌شده",
+    "noDate": "بدون تاریخ"
+  },
+  "row": {
+    "complete": "انجام «{title}»",
+    "reopen": "بازگشایی «{title}»",
+    "repeats": "تکرارشونده",
+    "someday": "روزی",
+    "subtasks": "{count, plural, other {# زیرکار}}",
+    "checklist": "چک‌لیست {done, number} از {total, number}",
+    "assignees": "مسئولان"
+  },
+  "repeat": {
+    "none": "بدون تکرار",
+    "daily": "روزانه",
+    "weekdays": "روزهای کاری",
+    "weekly": "هفتگی",
+    "monthly": "ماهانه",
+    "yearly": "سالانه"
+  },
+  "sheet": {
+    "details": "جزئیات کار",
+    "title": "عنوان",
+    "notes": "یادداشت",
+    "notesPlaceholder": "جزئیات را بنویسید…",
+    "dueDate": "تاریخ موعد",
+    "time": "ساعت",
+    "timeHint": "برای تمام‌روز خالی بگذارید",
+    "priority": "اولویت",
+    "project": "پروژه",
+    "noProject": "بدون پروژه",
+    "someday": "کنار گذاشتن برای روزی",
+    "save": "ذخیرهٔ تغییرات",
+    "saved": "ذخیره شد",
+    "complete": "انجام شد",
+    "reopen": "بازگشایی",
+    "completedChip": "انجام‌شده",
+    "repeatsChip": "{preset, select, daily {تکرار روزانه} weekdays {تکرار در روزهای کاری} weekly {تکرار هفتگی} monthly {تکرار ماهانه} yearly {تکرار سالانه} other {تکرار با زمان‌بندی سفارشی}}",
+    "repeat": "تکرار",
+    "repeatNeedsDate": "برای تکرارشونده کردن این کار، تاریخ موعد تعیین کنید.",
+    "afterCompletion": "نوبت بعدی را از زمان انجام این کار زمان‌بندی کن",
+    "checklist": "چک‌لیست",
+    "checklistNew": "مورد تازهٔ چک‌لیست",
+    "checklistPlaceholder": "افزودن مورد",
+    "checklistAdd": "افزودن مورد به چک‌لیست",
+    "activity": "فعالیت",
+    "delete": "حذف کار",
+    "createdBy": "ساخته‌شده توسط {name}",
+    "someone": "کسی",
+    "assignees": "مسئولان"
+  },
+  "activity": {
+    "created": "<actor>{name}</actor> این کار را ساخت",
+    "updated": "<actor>{name}</actor> این کار را ویرایش کرد",
+    "completed": "<actor>{name}</actor> این کار را انجام داد",
+    "reopened": "<actor>{name}</actor> این کار را دوباره باز کرد",
+    "deleted": "<actor>{name}</actor> این کار را حذف کرد",
+    "restored": "<actor>{name}</actor> این کار را بازگرداند",
+    "recurred": "<actor>{name}</actor> این نوبت را ساخت",
+    "recurrence_set": "<actor>{name}</actor> آن را تکرارشونده کرد",
+    "recurrence_removed": "<actor>{name}</actor> تکرار آن را متوقف کرد",
+    "dependency_added": "<actor>{name}</actor> یک وابستگی افزود",
+    "other": "<actor>{name}</actor> این کار را تغییر داد"
+  },
+  "deletedBanner": "کار حذف شد"
+}

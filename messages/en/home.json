@@ -1,0 +1,28 @@
+{
+  "metaTitle": "Home",
+  "greeting": {
+    "morning": "Good morning, {name}",
+    "afternoon": "Good afternoon, {name}",
+    "evening": "Good evening, {name}"
+  },
+  "today": "Today",
+  "openToday": "Open Today in the planner",
+  "quickAddPlaceholder": "What needs doing today?",
+  "emptyTitle": "A clear day",
+  "emptyHint": "Nothing is due today. Add something above or plan ahead in Upcoming.",
+  "moreInToday": "{count, plural, one {# more in Today →} other {# more in Today →}}",
+  "nextUp": "Next up",
+  "nothingPressing": "Nothing pressing. Enjoy the space.",
+  "openTask": "Open task",
+  "metrics": {
+    "today": "Today",
+    "overdue": "Overdue",
+    "inbox": "Inbox"
+  },
+  "projectsPersonal": "Your projects",
+  "projectsWorkspace": "{workspace} projects",
+  "allProjects": "All projects",
+  "emptyProjectsTitle": "No projects yet",
+  "emptyProjectsHint": "Group related tasks into a project to track progress.",
+  "createProject": "Create a project"
+}

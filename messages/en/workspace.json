@@ -1,0 +1,23 @@
+{
+  "metaTitle": "Team",
+  "title": "Team",
+  "members": "Members",
+  "roleFor": "Role for {name}",
+  "roles": {
+    "OWNER": "Owner",
+    "ADMIN": "Admin",
+    "MANAGER": "Manager",
+    "MEMBER": "Member",
+    "GUEST": "Guest"
+  },
+  "personalTitle": "You’re in your personal space",
+  "personalHint": "Switch to a workspace from the context menu at the top to see its members.",
+  "personalAction": "Manage workspaces",
+  "noneTitle": "Work with a team",
+  "noneHint": "Create a workspace to share projects and tasks with others. Your personal tasks stay private.",
+  "noneAction": "Create a workspace",
+  "directoryUnavailableTitle": "Member list unavailable",
+  "directoryUnavailableHint": "Your role in this workspace doesn’t include viewing the member directory.",
+  "invitesNote": "Invitations arrive in the next phase.",
+  "membersPreview": "Workspace members"
+}
