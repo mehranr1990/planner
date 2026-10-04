@@ -111,6 +111,9 @@ enum NotificationType {
   MENTIONED
   TASK_DUE_SOON
   TASK_OVERDUE
+  TASK_STATUS_CHANGED
+  TASK_DUE_DATE_CHANGED
+  TASK_UNBLOCKED
   INVITATION
   WORKSPACE_ROLE_CHANGED
 }
@@ -156,6 +159,8 @@ model User {
   recurrenceSeries        RecurrenceSeries[]
   labels                  Label[]
   comments                Comment[]
+  mentions                Mention[]
+  reminders               Reminder[]
   activities              Activity[]
   auditEvents             AuditEvent[]
   notifications           Notification[]           @relation("NotificationRecipient")
@@ -475,6 +480,7 @@ model Task {
   checklist   ChecklistItem[]
   labels      TaskLabel[]
   comments    Comment[]
+  reminders   Reminder[]
 
   @@unique([seriesId, occurrenceOn]) // recurrence duplication guard
   @@unique([createdById, clientMutationId])
@@ -527,6 +533,29 @@ model TaskDependency {
   @@id([blockingTaskId, blockedTaskId])
   @@index([blockedTaskId])
   @@map("task_dependencies")
+}
+
+/// A single, self-service "remind me" per (task, recipient) — one row per user who wants a
+/// reminder on this task, not a global per-task reminder. `remindAt` is always an absolute UTC
+/// instant: a "relative to due date" reminder is resolved to one at set-time and does not
+/// re-float if the due date later changes (docs/HANDOFF.md documents this explicitly).
+/// Task-only for now; a second target type (habits, meetings — Phase 5+) adds its own nullable
+/// FK + CHECK then, following the `Comment` precedent, rather than generalizing pre-emptively.
+model Reminder {
+  id          String    @id @default(cuid())
+  taskId      String    @map("task_id")
+  userId      String    @map("user_id")
+  remindAt    DateTime  @map("remind_at") @db.Timestamptz(3)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([remindAt, deliveredAt])
+  @@map("reminders")
 }
 
 model ChecklistItem {
@@ -627,10 +656,27 @@ model Comment {
   project   Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   replyTo   Comment?   @relation("Replies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Comment[]  @relation("Replies")
+  mentions  Mention[]
 
   @@index([taskId, createdAt])
   @@index([projectId, createdAt])
   @@map("comments")
+}
+
+/// @-mentions parsed from a comment body (`@[Name](userId)` tokens). Drives MENTIONED notifications;
+/// not a display source (the token already carries the name shown at mention time).
+model Mention {
+  id          String   @id @default(cuid())
+  commentId   String   @map("comment_id")
+  mentionedId String   @map("mentioned_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  mentioned User    @relation(fields: [mentionedId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, mentionedId])
+  @@index([mentionedId])
+  @@map("mentions")
 }
 
 /// Append-only, user-facing history ("Alex completed this task").

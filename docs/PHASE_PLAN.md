@@ -12,10 +12,10 @@ The granular 0–15 implementation plan is kept (§92). Section 2 maps the maste
 | 2i | **Internationalization foundation** (cross-cutting): next-intl, en + fa (RTL), resolution and persistence, catalogs for every built screen, error codes, Intl formatting, Persian typography, RTL audit | **Done** (2026-10-01) |
 | 2a | **Quality-gate catch-up** (no new product features): shared `createTask` core (§91); all action logic → services (projects, workspace, account, auth) + shared `runAction`; in-repo Playwright E2E (16 flows) + visual baseline (22 shots); `IconLink`/`IconButton`/`Dialog` consolidation | **Done** (2026-10-01) |
 | 2b | **Done** (2026-10-04). Workspaces completion: invitations (token, expiry, accept, email), remove/deactivate, teams, guests/external, custom-roles UI, audit view, settings split (§6), **notification service core** (generation + `dedupe_key`; in-app only), onboarding (4-step flow, see `docs/phases/PHASE_2b.md`), security settings (password change/reset, sessions), email-provider abstraction (Resend). Deferred with a reason: transfer ownership (→3), avatar upload (→3, Q-PO-8) | — |
-| 3 | Task engine completion + projects + collaboration primitives: assignees/participants/watchers UI, subtasks, labels/tags, start date/time, estimates, reminders (needs jobs, so UI here with the delivery job in 4), related tasks, dependency UI, duplicate/move/archive, comments + mentions → notifications, attachments + FileObject (storage decision), planner DnD/bulk/saved views/group/sort/filter; project tabs Overview/Tasks/Board/Timeline/Activity, sections, milestones, members, settings, tags | |
-| 4 | Calendar (D/W/M/Agenda), events, time blocks, timers (one active), focus, time entries, **background job runner** (reminders, due-soon/overdue notifications), project Calendar tab | |
+| 3 | **Approved, in progress** (batched — see `docs/phases/PHASE_3.md`; batches 1–3 done). Task engine completion + projects + collaboration primitives: assignees/watchers UI, subtasks, labels/tags, dependency UI, comments + mentions → notifications, **reminders (model + UI + delivery — pulled forward ahead of Phase 4, narrowly scoped, see `docs/HANDOFF.md` §2a)**, notification execution audit + **notification inbox (pulled forward ahead of Phase 6)**, activity hardening, planner delegated view/DnD/bulk/filters; board, timeline, milestones; transfer ownership, avatar upload (Vercel Blob). **Attachments deferred out of batch 3, still unscheduled.** | Unblocked (Q-PO-8, Q-PO-17 resolved 2026-10-04) |
+| 4 | Calendar (D/W/M/Agenda), events, time blocks, timers (one active), focus, time entries, **generic background job runner** (SLA breaches, habit prompts, subscription charges, automations, AI jobs, email delivery — reminder delivery itself already shipped in Phase 3 batch 3, narrowly, not via this table), project Calendar tab | |
 | 5 | Habits (6 types), routines, journal, check-ins, goals/OKR, daily/weekly plan & review | |
-| 6 | Attention centre, notification UI + preferences + email channel, global search, command palette, quick capture + web clipper + email-in (non-AI) | |
+| 6 | Attention centre, notification **preferences + email channel** (the in-app inbox UI itself shipped in Phase 3 batch 3), global search, command palette, quick capture + web clipper + email-in (non-AI) | |
 | 7 | Chat (all §42 capabilities), message → work (§43), project Chat tab, async updates/announcements (§56), calls provider integration (§45) | |
 | 8 | Boards / item types / custom fields (incl. relation, mirror, safe formula), dashboards, reports, workload | |
 | 9 | Forms, requests + types, SLA engine + business calendar, generic approvals | |
@@ -98,16 +98,16 @@ Each phase produces a short `docs/phases/PHASE_<n>.md`. Its sections follow the 
 | Q-PO-5 | Real-time transport (chat, presence, typing, live updates) | 7 |
 | Q-PO-6 | Naming: "Attention"/"Activity" vs Planner "Inbox" (§10 vs §46 both say Inbox) | 6 |
 | Q-PO-7 | Separate table-style `/tasks` area (§78) in addition to Planner "All tasks"? | 3 |
-| Q-PO-8 | File storage provider | 3 |
+| ~~Q-PO-8~~ | File storage provider — **resolved 2026-10-04: Vercel Blob**, behind a small swappable adapter interface | — |
 | Q-PO-9 | Rich-text editor library and sanitiser (descriptions, comments, docs, journal) | 3 |
 | Q-PO-10 | Adopt shadcn/Radix for complex primitives (spec §3) or keep hand-built? | 3 |
 | Q-PO-11 | Install ffmpeg for the §1 frame-extraction step, or accept the provided frames | 0 |
 | ~~Q-PO-12~~ | Security section scope — **resolved 2026-10-03**: change password, forgot/reset password, active-sessions list (view/revoke-one/revoke-all-others) are in scope for 2b. 2FA/TOTP, passkeys/WebAuthn, recovery codes, trusted devices, login history, IP intelligence and suspicious-login detection are explicitly **not** in 2b and are not yet defined by the product spec (do not invent, §98). Email-address change stays a future decision | — |
-| Q-PO-13 | Background-job runtime on Vercel (Cron + DB queue, or an external queue) | 4 |
+| Q-PO-13 | Background-job runtime on Vercel (Cron + DB queue, or an external queue) — **partially resolved 2026-10-04 for reminders only**: Vercel Cron + an idempotent DB claim on the `Reminder` row itself (Phase 3 batch 3, see `docs/HANDOFF.md` §2a). Still open for Phase 4's other consumers (SLA, habits, subscriptions, automations), which may need the fuller generic `Job` table this doesn't attempt to build | 4 |
 | Q-PO-14 | Calls/video provider | 7 |
 | Q-PO-15 | Search engine: Postgres FTS (proposed) vs external | 6 |
 | ~~Q-PO-16~~ | `@playwright/test` adopted (Phase 2a) | — |
-| Q-PO-17 | Delegated work: should tasks the user owns but assigned to others appear in a "Delegated/Waiting" planner view? (Currently they leave the owner's planner) | 3 |
+| ~~Q-PO-17~~ | Delegated work — **resolved 2026-10-04: yes**, a 9th planner view "Delegated" (owned by viewer, assigned to someone else, not done) | — |
 
 ### Internationalization (Q-I18N)
 

@@ -1,0 +1,18 @@
+{
+  "heading": "اعلان‌ها",
+  "markAllRead": "علامت‌گذاری همه به‌عنوان خوانده‌شده",
+  "empty": "هنوز اعلانی نیست",
+  "item": {
+    "TASK_ASSIGNED": "{actor} شما را به «{title}» اختصاص داد",
+    "TASK_COMMENTED": "{actor} روی «{title}» نظر داد",
+    "MENTIONED": "{actor} در «{title}» به شما اشاره کرد",
+    "TASK_DUE_SOON": "یادآوری: {title}",
+    "TASK_OVERDUE": "«{title}» عقب‌افتاده است",
+    "TASK_STATUS_CHANGED": "{actor} وضعیت «{title}» را تغییر داد",
+    "TASK_DUE_DATE_CHANGED": "{actor} موعد «{title}» را تغییر داد",
+    "TASK_UNBLOCKED": "«{title}» دیگر مسدود نیست",
+    "INVITATION": "{actor} دعوت شما به «{title}» را پذیرفت",
+    "WORKSPACE_ROLE_CHANGED": "نقش شما اکنون «{title}» است",
+    "other": "به‌روزرسانی: {title}"
+  }
+}

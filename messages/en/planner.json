@@ -58,6 +58,12 @@
       "description": "Everything you own or are assigned",
       "emptyTitle": "No tasks yet",
       "emptyHint": "Use quick add above to create your first task."
+    },
+    "delegated": {
+      "label": "Delegated",
+      "description": "Tasks you own that you've handed to someone else",
+      "emptyTitle": "Nothing delegated",
+      "emptyHint": "Tasks you own and assign to someone else, but aren't assigned to yourself, show up here."
     }
   },
   "summary": {

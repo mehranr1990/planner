@@ -4,6 +4,7 @@ import enErrors from "../../messages/en/errors.json";
 import enHome from "../../messages/en/home.json";
 import enInvitations from "../../messages/en/invitations.json";
 import enNavigation from "../../messages/en/navigation.json";
+import enNotifications from "../../messages/en/notifications.json";
 import enOnboarding from "../../messages/en/onboarding.json";
 import enPlanner from "../../messages/en/planner.json";
 import enProjects from "../../messages/en/projects.json";
@@ -17,6 +18,7 @@ import faErrors from "../../messages/fa/errors.json";
 import faHome from "../../messages/fa/home.json";
 import faInvitations from "../../messages/fa/invitations.json";
 import faNavigation from "../../messages/fa/navigation.json";
+import faNotifications from "../../messages/fa/notifications.json";
 import faOnboarding from "../../messages/fa/onboarding.json";
 import faPlanner from "../../messages/fa/planner.json";
 import faProjects from "../../messages/fa/projects.json";
@@ -42,6 +44,7 @@ const en = {
   invitations: enInvitations,
   onboarding: enOnboarding,
   security: enSecurity,
+  notifications: enNotifications,
 };
 
 export type Messages = typeof en;
@@ -61,6 +64,7 @@ const fa = {
   invitations: faInvitations,
   onboarding: faOnboarding,
   security: faSecurity,
+  notifications: faNotifications,
 } satisfies Messages;
 
 const catalogs: Record<AppLocale, Messages> = { en, fa };

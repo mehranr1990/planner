@@ -3,9 +3,24 @@ import type { Prisma } from "@/generated/prisma/client";
 import { fromDbDate, localMinutes, todayIn, toDbDate, type CalendarDate } from "@/lib/time";
 import { db } from "@/server/db";
 import type { Viewer } from "@/server/context";
+import { listLabels } from "@/features/labels/server/queries";
+import { listMembers } from "@/features/workspace/server/queries";
 import type { PlannerScopeFilter, PlannerView } from "../domain/planner-views";
 import { OPEN_STATUSES, type RecurrenceDisplay, type TaskDetail, type TaskListItem } from "../types";
-import { canDeleteTask, canEditTask, findVisibleTask, visibleTasksWhere } from "./access";
+import { canAssignTask, canDeleteTask, canEditTask, findVisibleTask, visibleTasksWhere } from "./access";
+
+/** Workspace members selectable as assignees for the open task's sheet; empty for personal tasks. */
+export async function getAssignableMembers(viewer: Viewer, detail: TaskDetail | null) {
+  if (!detail || detail.context.kind !== "workspace") return [];
+  const members = await listMembers(viewer, detail.context.id);
+  return members?.map((m) => m.user) ?? [];
+}
+
+/** Labels usable on the open task's own scope (that workspace, or the viewer's personal labels). */
+export async function getTaskLabelOptions(viewer: Viewer, detail: TaskDetail | null) {
+  if (!detail) return [];
+  return listLabels(viewer, detail.context.kind === "workspace" ? { scope: "WORKSPACE", workspaceId: detail.context.id } : { scope: "PERSONAL" });
+}
 
 const listSelect = {
   id: true,
@@ -24,10 +39,13 @@ const listSelect = {
   ownerId: true,
   createdById: true,
   occurrenceOn: true,
+  parentId: true,
   workspace: { select: { id: true, name: true } },
-  project: { select: { id: true, name: true, color: true, ownerId: true, members: { select: { userId: true, role: true } } } },
+  project: { select: { id: true, name: true, color: true, ownerId: true, visibility: true, members: { select: { userId: true, role: true } } } },
   // Stable preview order (first assigned first) so faces don't reshuffle between renders.
   assignees: { select: { userId: true, user: { select: { id: true, name: true, avatarUrl: true } } }, orderBy: [{ assignedAt: "asc" }, { userId: "asc" }], take: 4 },
+  watchers: { select: { userId: true } },
+  labels: { select: { label: { select: { id: true, name: true, color: true } } }, orderBy: { label: { name: "asc" } } },
   checklist: { select: { isDone: true } },
   _count: { select: { subtasks: { where: { deletedAt: null } }, assignees: true } },
 } satisfies Prisma.TaskSelect;
@@ -56,6 +74,7 @@ function toListItem(viewer: Viewer, row: ListRow, now = new Date()): TaskListIte
     assigneeCount: row._count.assignees,
     subtaskCount: row._count.subtasks,
     checklist: { done: row.checklist.filter((c) => c.isDone).length, total: row.checklist.length },
+    labels: row.labels.map((l) => l.label),
     canEdit: canEditTask(viewer, row),
   };
 }
@@ -64,6 +83,16 @@ function toListItem(viewer: Viewer, row: ListRow, now = new Date()): TaskListIte
 function mineWhere(viewer: Viewer): Prisma.TaskWhereInput {
   const me = viewer.user.id;
   return { OR: [{ assignees: { some: { userId: me } } }, { ownerId: me, assignees: { none: {} } }] };
+}
+
+/** The complement of "mine" for delegated work: I own it, I handed it to someone else, I'm not one of them. */
+function delegatedWhere(viewer: Viewer): Prisma.TaskWhereInput {
+  const me = viewer.user.id;
+  return { ownerId: me, assignees: { some: {} }, NOT: { assignees: { some: { userId: me } } } };
+}
+
+function ownershipWhere(viewer: Viewer, view: PlannerView): Prisma.TaskWhereInput {
+  return view === "delegated" ? delegatedWhere(viewer) : mineWhere(viewer);
 }
 
 function scopeWhere(filter: PlannerScopeFilter): Prisma.TaskWhereInput {
@@ -97,6 +126,8 @@ export function viewWhere(view: PlannerView, today: CalendarDate, now: Date): Pr
       return { status: "DONE" };
     case "all":
       return { archivedAt: null };
+    case "delegated":
+      return open;
   }
 }
 
@@ -112,7 +143,7 @@ export async function getPlannerTasks(viewer: Viewer, view: PlannerView, filter:
   const now = new Date();
   const today = todayIn(viewer.user.timezone, now);
   const rows = await db.task.findMany({
-    where: { AND: [visibleTasksWhere(viewer), mineWhere(viewer), scopeWhere(filter), viewWhere(view, today, now), { parentId: null }] },
+    where: { AND: [visibleTasksWhere(viewer), ownershipWhere(viewer, view), scopeWhere(filter), viewWhere(view, today, now), { parentId: null }] },
     orderBy: viewOrder(view),
     select: listSelect,
     take: VIEW_LIMIT + 1,
@@ -123,10 +154,10 @@ export async function getPlannerTasks(viewer: Viewer, view: PlannerView, filter:
 export async function getPlannerCounts(viewer: Viewer, filter: PlannerScopeFilter) {
   const now = new Date();
   const today = todayIn(viewer.user.timezone, now);
-  const base = [visibleTasksWhere(viewer), mineWhere(viewer), scopeWhere(filter), { parentId: null }];
-  const count = (view: PlannerView) => db.task.count({ where: { AND: [...base, viewWhere(view, today, now)] } });
-  const [inbox, todayCount, overdue] = await Promise.all([count("inbox"), count("today"), count("overdue")]);
-  return { inbox, today: todayCount, overdue };
+  const base = [visibleTasksWhere(viewer), scopeWhere(filter), { parentId: null }];
+  const count = (view: PlannerView) => db.task.count({ where: { AND: [...base, ownershipWhere(viewer, view), viewWhere(view, today, now)] } });
+  const [inbox, todayCount, overdue, delegated] = await Promise.all([count("inbox"), count("today"), count("overdue"), count("delegated")]);
+  return { inbox, today: todayCount, overdue, delegated };
 }
 
 export async function getProjectTasks(viewer: Viewer, projectId: string, includeDone: boolean) {
@@ -165,6 +196,9 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
       series: { select: { frequency: true, interval: true, byWeekday: true, mode: true, endedAt: true } },
       subtasks: { where: { deletedAt: null }, select: { id: true, title: true, status: true }, orderBy: { sortOrder: "asc" } },
       checklist: { select: { id: true, title: true, isDone: true }, orderBy: { sortOrder: "asc" } },
+      watchers: { select: { userId: true } },
+      blockedBy: { select: { blockingTask: { select: { id: true, title: true, status: true } } }, orderBy: { createdAt: "asc" } },
+      blocking: { select: { blockedTask: { select: { id: true, title: true, status: true } } }, orderBy: { createdAt: "asc" } },
     },
   });
   const activity = await db.activity.findMany({
@@ -174,6 +208,7 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
     select: { id: true, action: true, createdAt: true, actor: { select: { id: true, name: true, avatarUrl: true } } },
   });
   const item = toListItem(viewer, row);
+  const blockedBy = row.blockedBy.map((d) => d.blockingTask);
   return {
     ...item,
     description: row.description,
@@ -183,8 +218,33 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy,
     canDelete: canDeleteTask(viewer, policy),
+    canAssign: canAssignTask(viewer, policy),
+    isWatching: row.watchers.some((w) => w.userId === viewer.user.id),
+    watcherCount: row.watchers.length,
     subtasks: row.subtasks,
     checklistItems: row.checklist,
     activity: activity.map((a) => ({ id: a.id, action: a.action, actor: a.actor, createdAt: a.createdAt.toISOString() })),
+    blockedBy,
+    blocking: row.blocking.map((d) => d.blockedTask),
+    isBlocked: blockedBy.some((d) => d.status !== "DONE" && d.status !== "CANCELLED"),
   };
+}
+
+/** Other visible tasks in the same scope, for the dependency picker's search (excludes itself). */
+export async function searchDependencyCandidates(viewer: Viewer, taskId: string, query: string) {
+  const task = await findVisibleTask(viewer, taskId);
+  const q = query.trim();
+  if (!task || !q) return [];
+  const rows = await db.task.findMany({
+    where: {
+      AND: [
+        visibleTasksWhere(viewer),
+        { id: { not: taskId }, scope: task.scope, workspaceId: task.workspaceId, deletedAt: null, title: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true, title: true, status: true },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
+  return rows;
 }

@@ -96,7 +96,7 @@ Legend:
 | PLN-17 | Saved filters/views | pills | SavedView | own | P | | 🗄 | — | 3 |
 | PLN-18 | Bulk actions | bulk bar | batched service calls in tx | edit per item | bottom bar | | ⬜ | — | 3 |
 | PLN-19 | Pagination beyond 200 | lists | cursor | — | — | — | 🟡 truncation notice | — | 3 |
-| PLN-20 | Delegated/Waiting view | /planner/delegated | owner ∧ assignees ≠ me | rel | P | | ⬜ | — | 3 (Q-PO-17) |
+| PLN-20 | Delegated/Waiting view | /planner/delegated | owner ∧ assignees ≠ me | rel | P | | ✅ | I | 3 (batch 1) |
 
 ## 5. Task engine (§11, §12)
 
@@ -108,23 +108,23 @@ Legend:
 | TSK-04 | Priority | TaskSheet, quick add | | edit | S | | ✅ | U, E | 2 |
 | TSK-05 | Due date / due time / all-day | TaskSheet, quick add | `normalizeSchedule` | edit | S | | ✅ | U, I, E | 2 |
 | TSK-06 | Start date / start time | TaskSheet | columns + CHECK | edit | S | | 🟡 backend only | U | 3 |
-| TSK-07 | Assignees / unassign | PeoplePicker | TaskAssignee | tasks.assign | S | | 🗄 (honoured in access) | — | 3 |
-| TSK-08 | Participants | PeoplePicker | TaskParticipant (Q-DM-1) | rel | S | | ⬜ | — | 3 |
-| TSK-09 | Followers/watchers | sheet | TaskWatcher | rel | S | | 🗄 | — | 3 |
+| TSK-07 | Assignees / unassign | PeoplePicker | TaskAssignee, `setTaskAssignees` | tasks.assign | S | | ✅ | I | 3 (batch 1) |
+| ~~TSK-08~~ | Participants | — | Q-DM-1 resolved: no separate relation — folded into TSK-09 (watchers) | — | — | | n/a | — | — |
+| TSK-09 | Followers/watchers | sheet | TaskWatcher, `watchTask`/`unwatchTask` | self + visibility | S | | ✅ | I | 3 (batch 1) |
 | TSK-10 | Creator / owner display + owner transfer | sheet | | edit | S | | 🟡 creator shown | — | 3 |
 | TSK-11 | Move to project (same space) | TaskSheet | cross-space rejected | edit | S | | ✅ | I | 2 |
 | TSK-12 | Board/list (section), area | sheet | ProjectSection, Area | edit | S | | 🗄 | — | 3 |
-| TSK-13 | Labels/tags | LabelPicker | Label (Q-DM-2) | edit | S | | 🗄 | — | 3 |
+| TSK-13 | Labels/tags (task-level) | LabelPicker | Label, `features/labels/*`, `setTaskLabels` | tasks.create (manage: owner/`workspace.manage`) | S | | ✅ | I | 3 (batch 1) |
 | TSK-14 | Custom fields on tasks | sheet | CustomField | edit | S | | ⬜ | — | 8 |
-| TSK-15 | Subtasks | sheet | parentId | edit | S | | 🟡 schema + count | — | 3 |
+| TSK-15 | Subtasks (create/complete/delete) | sheet | parentId, `createSubtask` (one level deep) | edit | S | | 🟡 reorder → batch 4 (DnD) | I | 3 (batch 1) |
 | TSK-16 | Checklist | sheet | ChecklistItem | edit | S | | ✅ | E | 2 |
-| TSK-17 | Dependencies (cycle-safe) | sheet + canvas | BFS + CHECK | edit | S | D1 connectors | 🟡 service only | U, I | 3 |
-| TSK-18 | Blockers display | row + sheet | derived from deps | rel | S | | ⬜ | — | 3 |
+| TSK-17 | Dependencies (cycle-safe) | sheet (`DependencyPicker`) | BFS + CHECK, `addDependency`/`removeDependency` | edit | S | | ✅ sheet only, no canvas | U, I | 3 (batch 2) |
+| TSK-18 | Blockers display | sheet | `blockedBy`/`blocking` on `TaskDetail`, blocked chip | rel | S | | ✅ | I | 3 (batch 2) |
 | TSK-19 | Related tasks | sheet | TaskRelation | edit | S | | ⬜ | — | 3 |
 | TSK-20 | Attachments | sheet | FileObject + Attachment | edit | S | | ⬜ | — | 3 (Q-PO-8) |
-| TSK-21 | Comments | CommentThread | Comment | rel | S | | 🗄 | — | 3 |
-| TSK-22 | Mentions → notification | MentionInput | Mention + notification service | rel | S | | ⬜ | — | 3 |
-| TSK-23 | Reminders | sheet | Reminder + jobs | own/rel | S | | ⬜ | — | 3 (UI) / 4 (delivery) |
+| TSK-21 | Comments | sheet (`CommentsSection`) | `features/collaboration/*`, one level of replies | rel + author/moderated edit-delete | S | | ✅ | I | 3 (batch 2) |
+| TSK-22 | Mentions → notification | inline `@[Name](id)` autocomplete in comment composer | Mention, `MENTIONED` notification | rel (task-visibility-filtered) | S | | ✅ | I | 3 (batch 2) |
+| TSK-23 | Reminders | sheet (`ReminderControl`) | `Reminder` model, `features/reminders/*`, Vercel Cron delivery engine | self-service + visibility | S | | ✅ delivery pulled forward from Phase 4 (narrow scheduler, not the generic `Job` table) | I | 3 (batch 3) |
 | TSK-24 | Recurrence presets | sheet | RecurrenceSeries | edit | S | | ✅ | U, I, E | 2 |
 | TSK-25 | Recurrence custom editor (interval, until, count, weekdays, month days) | RecurrenceEditor | domain supports | edit | S | | 🟡 domain only | U | 3 |
 | TSK-26 | After-completion mode | sheet | | edit | S | | ✅ | U | 2 |
@@ -358,11 +358,11 @@ Legend:
 
 | ID | Feature | Surface | Backend / domain | Perm | Mob | Ref | Impl | Test | Phase |
 |---|---|---|---|---|---|---|---|---|---|
-| COL-01 | Comments + replies (shared component) | CommentThread | Comment (single-parent CHECK) | parent | S | §96 | 🗄 | — | 3 |
-| COL-02 | Edited / deleted state and history policy | | editedAt / deletedAt | author | | | 🗄 | — | 3 |
-| COL-03 | Mentions → notification | MentionInput | Mention | parent | | | ⬜ | — | 3 |
+| COL-01 | Comments + replies (shared component) | `CommentsSection` | Comment (single-parent CHECK) | parent | S | §96 | 🟡 task-only so far (`features/collaboration/*`); project parent type unused until a second caller needs it | I | 3 (batch 2) |
+| COL-02 | Edited / deleted state and history policy | sheet | editedAt / deletedAt (soft delete, body retained) | author (delete: author or moderator) | | | ✅ | I | 3 (batch 2) |
+| COL-03 | Mentions → notification | inline mention autocomplete | Mention | parent (visibility-filtered) | | | ✅ | I | 3 (batch 2) |
 | COL-04 | Reactions | ReactionBar | Reaction | parent | | | ⬜ | — | 3/7 |
-| COL-05 | Followers / watchers | | TaskWatcher → generic | parent | | | 🗄 | — | 3 |
+| COL-05 | Followers / watchers | sheet | TaskWatcher (task-only; generic polymorphic followers deferred until a second parent type needs it) | self + visibility | | | ✅ | I | 3 (batch 1) |
 | COL-06 | Presence / status | avatars | real-time | members.view | | | ⬜ | — | 7 |
 | CHT-01 | Public channels | /chat | Channel PUBLIC | chat.create_public | list → push | §96 | ⬜ | — | 7 |
 | CHT-02 | Private channels | | PRIVATE + members | chat.create_private / rel | | | ⬜ | — | 7 |
@@ -395,9 +395,9 @@ Legend:
 | CLL-02 | Group calls | | | | | | ⬜ | — | 7 |
 | CLL-03 | Screen sharing | | | | desktop | | ⬜ | — | 7 |
 | ATT-01 | Attention list (action-required) separate from activity | /attention | derived (Q-DM-3) | own | swipe done | §96 | ⬜ | — | 6 (Q-PO-6) |
-| ATT-02 | Sources: mentions, replies, assignments, comments, approvals, meetings, deadlines, overdue, invitations, workflow events | | notification + derived | own | | | ⬜ | — | 6 |
-| NOT-01 | Notification generation service (dedupe) | — | `notify()`, `Notification.dedupe_key`, wired from invites + role changes | — | — | — | ✅ | I | 2b |
-| NOT-02 | Read / unread, type, source, entity ref, actor, deep link | bell popover | | own | F | | 🗄 | — | 6 |
+| ATT-02 | Sources: mentions, replies, assignments, comments, approvals, meetings, deadlines, overdue, invitations, workflow events | | notification + derived | own | | | 🟡 most task/collab sources notify (batches 1–3); approvals/meetings/workflow events ⬜ (not built); the dedicated /attention list itself ⬜ | — | 6 |
+| NOT-01 | Notification generation service (dedupe) | — | `notify()`/`notifyMany()`, `Notification.dedupe_key`, wired from invites, role changes, assignment, mentions, comments, status/due-date changes, dependency-unblocked, reminders | — | — | — | ✅ | I | 2b / 3 (batch 3 events) |
+| NOT-02 | Read / unread, type, source, entity ref, actor, deep link | bell popover (`NotificationBell`) | `features/notifications/*` | own | F | | ✅ pulled forward from Phase 6 (preferences UI, email channel, search/command palette still Phase 6) | I | 3 (batch 3) |
 | NOT-03 | Inline action buttons | item | | own | | | ⬜ | — | 6 |
 | NOT-04 | Preferences per category × channel | settings | NotificationPreference | own | | | 🗄 | — | 6 |
 | NOT-05 | Email channel | — | provider + jobs | own | — | | ⬜ | — | 6 |
@@ -484,7 +484,7 @@ Legend:
 | DSN-03 | Radii / pills / circular controls / nested surfaces | primitives | ✅ | E | 1 |
 | DSN-04 | Workflow visuals for real relationships | WorkflowCanvas | ⬜ | — | 3 |
 | DSN-05 | Icon rail + tooltips + grouping | Rail | 🟡 grouping pending more modules | E | 1/6 |
-| DSN-06 | Calm top bar (context, search, command, attention, notifications, quick add, avatar) | AppShell | 🟡 search / attention / notifications missing | E | 6 |
+| DSN-06 | Calm top bar (context, search, command, attention, notifications, quick add, avatar) | AppShell | 🟡 search / attention / command palette missing (notifications ✅ batch 3) | E | 6 |
 | DSN-07 | Motion per video choreography + reduced motion | globals.css | ✅ | — | 1 |
 | DSN-08 | Visual regression loop (§88) | `e2e/visual.spec.ts`, 22 baselines | ✅ | E (visual) | 2a |
 | DSN-09 | Unseen-page composition rule (§96) | DESIGN_SYSTEM §10 | ✅ documented | — | all |

@@ -1,25 +1,39 @@
 "use client";
 
-import { Check, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Bell, BellOff, Check, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, IconButton } from "@/components/ui/button";
-import { Chip } from "@/components/ui/data-viz";
+import { Chip, toneOf } from "@/components/ui/data-viz";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { LabelPicker, type LabelOption } from "@/components/ui/label-picker";
+import type { PersonRef } from "@/components/ui/people";
 import { PeopleCluster } from "@/components/ui/people-cluster";
+import { PeoplePicker } from "@/components/ui/people-picker";
 import { Sheet } from "@/components/ui/sheet";
 import { useFormat } from "@/i18n/use-format";
 import { cn } from "@/lib/cn";
 import type { CalendarDate } from "@/lib/time";
+import { createLabelAction } from "@/features/labels/server/actions";
+import type { CommentItem } from "@/features/collaboration/types";
+import type { ReminderDetail } from "@/features/reminders/types";
+import { CommentsSection } from "./comments-section";
+import { DependencyPicker } from "./dependency-picker";
+import { ReminderControl } from "./reminder-control";
 import {
   addChecklistItemAction,
+  createSubtaskAction,
   deleteTaskAction,
+  setTaskAssigneesAction,
   setTaskCompletionAction,
+  setTaskLabelsAction,
   setTaskRecurrenceAction,
   toggleChecklistItemAction,
+  unwatchTaskAction,
   updateTaskAction,
+  watchTaskAction,
 } from "../server/actions";
 import type { RecurrencePreset, TaskDetail, TaskPriority } from "../types";
 
@@ -36,6 +50,20 @@ const KNOWN_ACTIVITY = new Set([
   "recurrence_set",
   "recurrence_removed",
   "dependency_added",
+  "dependency_removed",
+  "assignees_changed",
+  "labels_changed",
+  "watching",
+  "unwatching",
+  "subtask_created",
+  "comment_created",
+  "comment_edited",
+  "comment_deleted",
+  "reminder_created",
+  "reminder_updated",
+  "reminder_removed",
+  "status_changed",
+  "schedule_changed",
 ] as const);
 type ActivityKey = typeof KNOWN_ACTIVITY extends Set<infer K> ? K : never;
 
@@ -53,10 +81,31 @@ function fromTimeInput(value: string): number | null {
 export function TaskSheet({
   task,
   projects,
+  members,
+  labelOptions,
+  comments,
+  mentionCandidates,
+  currentUser,
+  reminder,
+  today,
   timezone,
 }: {
   task: TaskDetail;
   projects: { id: string; name: string; workspaceId: string | null }[];
+  /** Workspace members selectable as assignees; empty for personal tasks. */
+  members: PersonRef[];
+  /** Labels usable on this task's own scope (that workspace, or the viewer's personal labels). */
+  labelOptions: LabelOption[];
+  /** This task's comment thread (one level of replies). */
+  comments: CommentItem[];
+  /** Users @mentionable in this task's comments — already visibility-filtered server-side. */
+  mentionCandidates: PersonRef[];
+  /** The signed-in viewer, for attributing new comments optimistically. */
+  currentUser: PersonRef;
+  /** The viewer's own reminder on this task, if any. */
+  reminder: ReminderDetail | null;
+  /** Server-computed "today" in the viewer's timezone, for reminder display and defaults. */
+  today: CalendarDate;
   /** Viewer's timezone — activity times render identically on server and client. */
   timezone: string;
 }) {
@@ -70,12 +119,22 @@ export function TaskSheet({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [newItem, setNewItem] = useState("");
+  const [newSubtask, setNewSubtask] = useState("");
+  const [optimisticAssigneeIds, setOptimisticAssigneeIds] = useOptimistic(task.assignees.map((a) => a.id));
+  const [optimisticLabelIds, setOptimisticLabelIds] = useOptimistic(task.labels.map((l) => l.id));
+  const [optimisticWatching, setOptimisticWatching] = useOptimistic(task.isWatching);
 
   const close = () => {
     const next = new URLSearchParams(params);
     next.delete("task");
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  const openTask = (id: string) => {
+    const next = new URLSearchParams(params);
+    next.set("task", id);
+    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   };
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) => {
@@ -91,6 +150,7 @@ export function TaskSheet({
   const sameSpaceProjects = projects.filter((p) => p.workspaceId === (task.context.kind === "workspace" ? task.context.id : null));
   const done = task.status === "DONE";
   const readOnly = !task.canEdit;
+  const canAssign = task.canAssign && task.context.kind === "workspace";
 
   const onSave = (form: FormData) => {
     const dueOn = String(form.get("dueOn") ?? "");
@@ -118,8 +178,25 @@ export function TaskSheet({
           {task.context.kind === "workspace" ? <span dir="auto">{task.context.name}</span> : tc("personal")}
         </Chip>
         {done && <Chip tone="green">{t("sheet.completedChip")}</Chip>}
+        {!done && task.isBlocked && <Chip tone="red">{t("sheet.blockedChip")}</Chip>}
         {task.recurrence && <Chip tone="yellow">{t("sheet.repeatsChip", { preset: task.recurrence.preset })}</Chip>}
-        <PeopleCluster people={task.assignees} total={task.assigneeCount} size="sm" max={3} label={t("sheet.assignees")} className="ms-auto" />
+        <div className="ms-auto flex items-center gap-2">
+          <IconButton
+            label={optimisticWatching ? t("sheet.unwatch") : t("sheet.watch")}
+            active={optimisticWatching}
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                setOptimisticWatching(!optimisticWatching);
+                const res = optimisticWatching ? await unwatchTaskAction({ taskId: task.id }) : await watchTaskAction({ taskId: task.id });
+                if (!res.ok) setError(res.error ?? null);
+              })
+            }
+          >
+            {optimisticWatching ? <Bell className="size-[18px]" aria-hidden /> : <BellOff className="size-[18px]" aria-hidden />}
+          </IconButton>
+          {task.assignees.length > 0 && <PeopleCluster people={task.assignees} total={task.assigneeCount} size="sm" max={3} label={t("sheet.assignees")} />}
+        </div>
       </div>
 
       <form action={onSave} className="flex flex-col gap-4">
@@ -206,6 +283,135 @@ export function TaskSheet({
           </div>
         )}
       </form>
+
+      {canAssign && (
+        <section aria-labelledby="assignees-heading" className="mt-8">
+          <h3 id="assignees-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
+            {t("sheet.assignees")}
+          </h3>
+          <PeoplePicker
+            people={members}
+            selected={optimisticAssigneeIds}
+            label={t("sheet.assignees")}
+            placeholder={t("sheet.assigneesPlaceholder")}
+            onChange={(ids) =>
+              start(async () => {
+                setOptimisticAssigneeIds(ids);
+                const res = await setTaskAssigneesAction({ taskId: task.id, userIds: ids });
+                if (!res.ok) setError(res.error ?? null);
+              })
+            }
+          />
+        </section>
+      )}
+
+      <section aria-labelledby="labels-heading" className="mt-8">
+        <h3 id="labels-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
+          {t("sheet.labels")}
+        </h3>
+        {readOnly ? (
+          task.labels.length > 0 ? (
+            <ul className="flex flex-wrap gap-1.5 px-1">
+              {task.labels.map((l) => (
+                <li key={l.id}>
+                  <Chip tone={toneOf(l.color)}>
+                    <span dir="auto">{l.name}</span>
+                  </Chip>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="px-1 text-[13px] text-foreground-subtle">{t("sheet.labelsNone")}</p>
+          )
+        ) : (
+          <LabelPicker
+            labels={labelOptions}
+            selected={optimisticLabelIds}
+            label={t("sheet.labels")}
+            placeholder={t("sheet.labelsPlaceholder")}
+            onChange={(ids) =>
+              start(async () => {
+                setOptimisticLabelIds(ids);
+                const res = await setTaskLabelsAction({ taskId: task.id, labelIds: ids });
+                if (!res.ok) setError(res.error ?? null);
+              })
+            }
+            onCreate={async (name, color) => {
+              const context = task.context.kind === "workspace" ? task.context.id : "personal";
+              const res = await createLabelAction({ context, name, color });
+              if (!res.ok) {
+                setError(res.error ?? null);
+                return null;
+              }
+              return res.data;
+            }}
+          />
+        )}
+      </section>
+
+      <section aria-labelledby="subtasks-heading" className="mt-8">
+        <h3 id="subtasks-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
+          {t("sheet.subtasks")}
+        </h3>
+        <ul className="flex flex-col gap-1">
+          {task.subtasks.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => openTask(s.id)}
+                className="flex w-full items-center gap-3 rounded-[14px] px-3 py-2 text-start text-sm hover:bg-surface-elevated"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "inline-flex size-4 shrink-0 items-center justify-center rounded-full ring-[1.5px]",
+                    s.status === "DONE" ? "bg-surface-active ring-surface-active" : "ring-border-strong",
+                  )}
+                >
+                  {s.status === "DONE" && <Check className="size-2.5 text-foreground-on-active" strokeWidth={3} />}
+                </span>
+                <span dir="auto" className={cn("min-w-0 flex-1 truncate", s.status === "DONE" && "text-foreground-subtle line-through")}>
+                  {s.title}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {task.subtasks.length === 0 && <p className="px-1 text-[13px] text-foreground-subtle">{t("sheet.subtasksNone")}</p>}
+        {!readOnly && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const title = newSubtask.trim();
+              if (!title) return;
+              run(() => createSubtaskAction({ parentTaskId: task.id, title }), () => setNewSubtask(""));
+            }}
+            className="mt-1 flex items-center gap-2 px-1"
+          >
+            <label htmlFor="subtask-new" className="sr-only">
+              {t("sheet.subtasksNew")}
+            </label>
+            <Input id="subtask-new" dir="auto" value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} placeholder={t("sheet.subtasksPlaceholder")} maxLength={500} />
+            <IconButton type="submit" size="lg" label={t("sheet.subtasksAdd")} disabled={!newSubtask.trim() || pending} className="bg-surface-elevated">
+              <Plus className="size-4" aria-hidden />
+            </IconButton>
+          </form>
+        )}
+      </section>
+
+      <section aria-labelledby="dependencies-heading" className="mt-8">
+        <h3 id="dependencies-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
+          {t("sheet.dependencies.heading")}
+        </h3>
+        <DependencyPicker taskId={task.id} blockedBy={task.blockedBy} blocking={task.blocking} readOnly={readOnly} onError={setError} />
+      </section>
+
+      <section aria-labelledby="reminder-heading" className="mt-8">
+        <h3 id="reminder-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
+          {t("sheet.reminder.heading")}
+        </h3>
+        <ReminderControl taskId={task.id} reminder={reminder} dueOn={task.dueOn} today={today} timezone={timezone} onError={setError} />
+      </section>
 
       {!readOnly && (
         <section aria-labelledby="repeat-heading" className="mt-8">
@@ -298,6 +504,8 @@ export function TaskSheet({
           </form>
         )}
       </section>
+
+      <CommentsSection taskId={task.id} comments={comments} mentionCandidates={mentionCandidates} currentUser={currentUser} timezone={timezone} />
 
       <section aria-labelledby="activity-heading" className="mt-8">
         <h3 id="activity-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">

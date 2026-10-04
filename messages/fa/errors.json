@@ -52,5 +52,12 @@
   "roleNameTooShort": "دست‌کم ۲ نویسه به کار ببرید",
   "currentPasswordIncorrect": "گذرواژهٔ فعلی‌تان نادرست است",
   "cannotRevokeCurrentSession": "نمی‌توانید نشستی را که هم‌اکنون در آن هستید لغو کنید. در عوض خارج شوید.",
-  "resetTokenInvalid": "این پیوند بازنشانی نامعتبر است یا منقضی شده."
+  "resetTokenInvalid": "این پیوند بازنشانی نامعتبر است یا منقضی شده.",
+  "subtaskTooDeep": "زیروظیفه‌ها فقط یک سطح می‌توانند داشته باشند.",
+  "labelNameTaken": "برچسبی با این نام از پیش وجود دارد.",
+  "labelNameTooShort": "دست‌کم ۱ نویسه به کار ببرید.",
+  "labelForbidden": "اجازهٔ مدیریت این برچسب را ندارید.",
+  "commentBodyRequired": "پیش از ارسال، چیزی بنویسید.",
+  "commentThreadTooDeep": "پاسخ‌ها فقط یک سطح می‌توانند داشته باشند.",
+  "reminderNeedsDueDate": "پیش از تنظیم یادآوری نسبت به موعد، برای کار موعدی تعیین کنید."
 }

@@ -6,7 +6,9 @@ import { recordActivity } from "@/server/activity";
 import { db, type Tx } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { actorIn, type Viewer } from "@/server/context";
+import { notify, notifyMany } from "@/server/notifications";
 import { can } from "@/server/permissions/capabilities";
+import { findVisibleLabel } from "@/features/labels/server/access";
 import { canAddTasksToProject, findVisibleProject } from "@/features/projects/server/access";
 import { wouldCreateCycle } from "../domain/dependencies";
 import { isPlannerView } from "../domain/planner-views";
@@ -15,7 +17,7 @@ import { nextOccurrence, type RecurrenceRule } from "../domain/recurrence";
 import { normalizeSchedule, ScheduleError } from "../domain/schedule";
 import type { RecurrencePreset } from "../types";
 import type { UpdateTaskInput } from "../schemas";
-import { canDeleteTask, canEditTask, findVisibleTask, visibleTasksWhere } from "./access";
+import { canAssignTask, canDeleteTask, canEditTask, findVisibleTask, taskNotifiableRecipients, visibleTasksWhere } from "./access";
 import { createTask } from "./create";
 
 export { DomainError };
@@ -103,36 +105,44 @@ async function guardedUpdate(tx: Tx, taskId: string, expectedVersion: number, da
 
 // ───────────────────────── Update ─────────────────────────
 
+/**
+ * Watcher-policy events (§8): status and due-date changes are meaningful enough to notify
+ * owner/assignees/watchers (deduped, actor excluded) — everything else (title, description,
+ * priority, estimate, someday, project moves) is recorded as plain activity only, no
+ * notification, so editing a task doesn't spam its watchers over every minor field.
+ */
 export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
   const task = await loadEditable(viewer, input.taskId);
   const current = await db.task.findUniqueOrThrow({
     where: { id: task.id },
-    select: { dueOn: true, dueAt: true, isAllDay: true, timezone: true, projectId: true },
+    select: { status: true, dueOn: true, dueAt: true, isAllDay: true, timezone: true, projectId: true },
   });
   if (input.status === "DONE") throw new DomainError("useComplete"); // completion has side effects (recurrence)
   const data: Prisma.TaskUncheckedUpdateManyInput = {};
-  const changes: string[] = [];
+  const fieldChanges: string[] = [];
+  let statusChange: { from: string; to: string } | null = null;
+  let scheduleChanged = false;
 
   if (input.title !== undefined) {
     data.title = input.title;
-    changes.push("title");
+    fieldChanges.push("title");
   }
   if (input.description !== undefined) {
     data.description = input.description?.trim() || null;
-    changes.push("description");
+    fieldChanges.push("description");
   }
   if (input.priority !== undefined) {
     data.priority = input.priority;
-    changes.push("priority");
+    fieldChanges.push("priority");
   }
   if (input.estimateMinutes !== undefined) data.estimateMinutes = input.estimateMinutes;
   if (input.isSomeday !== undefined) {
     data.isSomeday = input.isSomeday;
-    changes.push(input.isSomeday ? "parked" : "unparked");
+    fieldChanges.push(input.isSomeday ? "parked" : "unparked");
   }
-  if (input.status !== undefined) {
+  if (input.status !== undefined && input.status !== current.status) {
     data.status = input.status;
-    changes.push("status");
+    statusChange = { from: current.status, to: input.status };
   }
 
   if (input.dueOn !== undefined || input.dueTime !== undefined) {
@@ -147,11 +157,11 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
       data.dueOn = s.dueOn ? toDbDate(s.dueOn) : null;
       data.dueAt = s.dueAt;
       if (s.dueOn) data.isSomeday = false; // a dated task is no longer parked
+      scheduleChanged = (data.dueOn as Date | null)?.getTime() !== current.dueOn?.getTime() || (data.dueAt as Date | null)?.getTime() !== current.dueAt?.getTime();
     } catch (e) {
       if (e instanceof ScheduleError) throw new DomainError(e.code);
       throw e;
     }
-    changes.push("schedule");
   }
 
   if (input.projectId !== undefined && input.projectId !== current.projectId) {
@@ -163,13 +173,42 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
     }
     data.projectId = input.projectId;
     data.sectionId = null;
-    changes.push("project");
+    fieldChanges.push("project");
   }
+
+  const newVersion = input.expectedVersion + 1;
+  const recipients = taskNotifiableRecipients(task, viewer.user.id);
 
   await db.$transaction(async (tx) => {
     await guardedUpdate(tx, task.id, input.expectedVersion, data);
-    if (changes.length > 0) {
-      await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "updated", data: { fields: changes } });
+    if (fieldChanges.length > 0) {
+      await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "updated", data: { fields: fieldChanges } });
+    }
+    if (statusChange) {
+      await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "status_changed", data: statusChange });
+      await notifyMany(tx, recipients, {
+        workspaceId: task.workspaceId,
+        actorId: viewer.user.id,
+        type: "TASK_STATUS_CHANGED",
+        entityType: "task",
+        entityId: task.id,
+        title: task.title,
+        deepLink: `/planner/all?task=${task.id}`,
+        dedupeKeyFor: (userId) => `task:${task.id}:v${newVersion}:status:${userId}`,
+      });
+    }
+    if (scheduleChanged) {
+      await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "schedule_changed" });
+      await notifyMany(tx, recipients, {
+        workspaceId: task.workspaceId,
+        actorId: viewer.user.id,
+        type: "TASK_DUE_DATE_CHANGED",
+        entityType: "task",
+        entityId: task.id,
+        title: task.title,
+        deepLink: `/planner/all?task=${task.id}`,
+        dedupeKeyFor: (userId) => `task:${task.id}:v${newVersion}:schedule:${userId}`,
+      });
     }
   });
 }
@@ -257,10 +296,20 @@ async function generateNextOccurrence(tx: Tx, taskId: string, actorId: string) {
   return result.id;
 }
 
+/**
+ * Completing a task clears its own pending (undelivered) reminders — nobody needs reminding
+ * about a task that's already done — and, for each task it blocks whose *other* blockers are
+ * all already resolved, notifies that task's owner/assignees/watchers that it's now unblocked
+ * (the one dependency event judged worth a notification: "you can start this now" is actionable,
+ * "a dependency was added" is not). Reopening a task does not resurrect its cleared reminders —
+ * the user re-adds one if they still want it (see docs/HANDOFF.md for the full policy table).
+ */
 export async function setTaskCompletion(viewer: Viewer, taskId: string, done: boolean) {
   const task = await loadEditable(viewer, taskId);
   const isDone = task.status === "DONE";
   if (done === isDone) return { nextOccurrenceId: null }; // idempotent toggle
+  const newVersion = task.version + 1;
+  const recipients = taskNotifiableRecipients(task, viewer.user.id);
 
   return db.$transaction(async (tx) => {
     await guardedUpdate(
@@ -272,9 +321,52 @@ export async function setTaskCompletion(viewer: Viewer, taskId: string, done: bo
         : { status: "TODO", completedAt: null, completedById: null },
     );
     await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: done ? "completed" : "reopened" });
-    const nextOccurrenceId = done ? await generateNextOccurrence(tx, task.id, viewer.user.id) : null;
+    await notifyMany(tx, recipients, {
+      workspaceId: task.workspaceId,
+      actorId: viewer.user.id,
+      type: "TASK_STATUS_CHANGED",
+      entityType: "task",
+      entityId: task.id,
+      title: task.title,
+      deepLink: `/planner/all?task=${task.id}`,
+      dedupeKeyFor: (userId) => `task:${task.id}:v${newVersion}:status:${userId}`,
+    });
+
+    let nextOccurrenceId: string | null = null;
+    if (done) {
+      await tx.reminder.deleteMany({ where: { taskId: task.id, deliveredAt: null } });
+      nextOccurrenceId = await generateNextOccurrence(tx, task.id, viewer.user.id);
+      await notifyUnblockedByCompleting(tx, task.id, newVersion, viewer.user.id);
+    }
     return { nextOccurrenceId };
   });
+}
+
+/** For each task this one blocks, notify its stakeholders once none of its *other* blockers remain open. */
+async function notifyUnblockedByCompleting(tx: Tx, completedTaskId: string, completedTaskVersion: number, actorId: string) {
+  const blocks = await tx.taskDependency.findMany({ where: { blockingTaskId: completedTaskId }, select: { blockedTaskId: true } });
+  for (const { blockedTaskId } of blocks) {
+    const stillBlocked = await tx.taskDependency.count({
+      where: { blockedTaskId, blockingTaskId: { not: completedTaskId }, blockingTask: { status: { notIn: ["DONE", "CANCELLED"] } } },
+    });
+    if (stillBlocked > 0) continue;
+    const blockedTask = await tx.task.findUnique({
+      where: { id: blockedTaskId },
+      select: { title: true, workspaceId: true, ownerId: true, assignees: { select: { userId: true } }, watchers: { select: { userId: true } } },
+    });
+    if (!blockedTask) continue;
+    const recipients = taskNotifiableRecipients(blockedTask, actorId);
+    await notifyMany(tx, recipients, {
+      workspaceId: blockedTask.workspaceId,
+      actorId,
+      type: "TASK_UNBLOCKED",
+      entityType: "task",
+      entityId: blockedTaskId,
+      title: blockedTask.title,
+      deepLink: `/planner/all?task=${blockedTaskId}`,
+      dedupeKeyFor: (userId) => `task:${completedTaskId}:v${completedTaskVersion}:unblocks:${blockedTaskId}:${userId}`,
+    });
+  }
 }
 
 const PRESET_RULES: Record<Exclude<RecurrencePreset, "none">, (anchor: CalendarDate) => Pick<RecurrenceRule, "frequency" | "byWeekday" | "byMonthDay">> = {
@@ -389,6 +481,150 @@ export async function addDependency(viewer: Viewer, blockingTaskId: string, bloc
       update: {},
     });
     await recordActivity(tx, { workspaceId: blocked.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: blockedTaskId, action: "dependency_added", data: { blockingTaskId } });
+  });
+}
+
+/** Same permission shape as `addDependency`: editing a dependency is gated on the blocked side. */
+export async function removeDependency(viewer: Viewer, blockingTaskId: string, blockedTaskId: string) {
+  const blocked = await findVisibleTask(viewer, blockedTaskId);
+  if (!blocked || !canEditTask(viewer, blocked)) throw new DomainError(NOT_FOUND);
+
+  await db.$transaction(async (tx) => {
+    const res = await tx.taskDependency.deleteMany({ where: { blockingTaskId, blockedTaskId } });
+    if (res.count > 0) {
+      await recordActivity(tx, { workspaceId: blocked.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: blockedTaskId, action: "dependency_removed", data: { blockingTaskId } });
+    }
+  });
+}
+
+// ───────────────────────── Assignees ─────────────────────────
+
+/**
+ * Replaces the task's assignee set in one call (diffed server-side), matching how `PeoplePicker`
+ * hands back the full next selection. Notifies only newly-added assignees, never on
+ * self-assignment or removal.
+ */
+export async function setTaskAssignees(viewer: Viewer, taskId: string, userIds: string[]) {
+  const task = await findVisibleTask(viewer, taskId);
+  if (!task || !canAssignTask(viewer, task)) throw new DomainError(NOT_FOUND);
+
+  const uniqueIds = [...new Set(userIds)];
+  if (task.scope === "PERSONAL") {
+    if (uniqueIds.length > 0) throw new DomainError(NOT_FOUND); // personal tasks have nobody else to assign
+  } else if (uniqueIds.length > 0) {
+    const members = await db.membership.count({ where: { workspaceId: task.workspaceId ?? "", userId: { in: uniqueIds }, status: "ACTIVE" } });
+    if (members !== uniqueIds.length) throw new DomainError(NOT_FOUND); // someone isn't an active member
+  }
+
+  const current = new Set(task.assignees.map((a) => a.userId));
+  const next = new Set(uniqueIds);
+  const added = uniqueIds.filter((id) => !current.has(id));
+  const removed = [...current].filter((id) => !next.has(id));
+  if (added.length === 0 && removed.length === 0) return;
+
+  await db.$transaction(async (tx) => {
+    if (removed.length) await tx.taskAssignee.deleteMany({ where: { taskId, userId: { in: removed } } });
+    if (added.length) await tx.taskAssignee.createMany({ data: added.map((userId) => ({ taskId, userId, assignedById: viewer.user.id })) });
+    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: taskId, action: "assignees_changed", data: { added, removed } });
+    for (const userId of added) {
+      if (userId === viewer.user.id) continue;
+      await notify(tx, {
+        recipientId: userId,
+        workspaceId: task.workspaceId,
+        actorId: viewer.user.id,
+        type: "TASK_ASSIGNED",
+        entityType: "task",
+        entityId: taskId,
+        title: task.title,
+        deepLink: `/planner/all?task=${taskId}`,
+        dedupeKey: `task:${taskId}:assigned:${userId}`,
+      });
+    }
+  });
+}
+
+// ───────────────────────── Watchers ─────────────────────────
+
+/** Watching is self-service: anyone who can see the task may follow it; nobody watches on another's behalf. */
+export async function watchTask(viewer: Viewer, taskId: string) {
+  const task = await findVisibleTask(viewer, taskId);
+  if (!task) throw new DomainError(NOT_FOUND);
+  await db.$transaction(async (tx) => {
+    const res = await tx.taskWatcher.createMany({ data: [{ taskId, userId: viewer.user.id }], skipDuplicates: true });
+    if (res.count > 0) await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: taskId, action: "watching" });
+  });
+}
+
+export async function unwatchTask(viewer: Viewer, taskId: string) {
+  const task = await findVisibleTask(viewer, taskId);
+  if (!task) throw new DomainError(NOT_FOUND);
+  await db.$transaction(async (tx) => {
+    const res = await tx.taskWatcher.deleteMany({ where: { taskId, userId: viewer.user.id } });
+    if (res.count > 0) await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: taskId, action: "unwatching" });
+  });
+}
+
+// ───────────────────────── Subtasks ─────────────────────────
+
+/** One level of nesting only (keeps the UI sane); goes through the shared `createTask` core (§91). */
+export async function createSubtask(viewer: Viewer, parentTaskId: string, title: string) {
+  const parent = await loadEditable(viewer, parentTaskId);
+  if (parent.parentId) throw new DomainError("subtaskTooDeep");
+  const current = await db.task.findUniqueOrThrow({
+    where: { id: parent.id },
+    select: { projectId: true, sectionId: true, areaId: true, timezone: true },
+  });
+  const schedule = normalizeSchedule({ dueOn: null, dueTime: null, timezone: current.timezone ?? viewer.user.timezone });
+
+  return db.$transaction(async (tx) => {
+    const result = await createTask(tx, {
+      source: { kind: "SUBTASK", ref: { type: "task", id: parent.id } },
+      scope: { scope: parent.scope, workspaceId: parent.workspaceId },
+      projectId: current.projectId,
+      sectionId: current.sectionId,
+      areaId: current.areaId,
+      parentId: parent.id,
+      ownerId: parent.ownerId,
+      createdById: viewer.user.id,
+      title,
+      schedule,
+    });
+    if (result.created) {
+      await recordActivity(tx, { workspaceId: parent.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: parent.id, action: "subtask_created", data: { subtaskId: result.id } });
+    }
+    return result;
+  });
+}
+
+// ───────────────────────── Labels ─────────────────────────
+
+/** Replaces the task's label set in one call, diffed server-side (same shape as `setTaskAssignees`). */
+export async function setTaskLabels(viewer: Viewer, taskId: string, labelIds: string[]) {
+  const task = await loadEditable(viewer, taskId);
+  const uniqueIds = [...new Set(labelIds)];
+  if (uniqueIds.length > 0) {
+    const labels = await Promise.all(uniqueIds.map((id) => findVisibleLabel(viewer, id)));
+    const valid = labels.every(
+      (l) =>
+        l &&
+        !l.archivedAt &&
+        l.scope === task.scope &&
+        (task.scope === "PERSONAL" ? l.ownerId === viewer.user.id : l.workspaceId === task.workspaceId),
+    );
+    if (!valid) throw new DomainError(NOT_FOUND);
+  }
+
+  const current = await db.taskLabel.findMany({ where: { taskId }, select: { labelId: true } });
+  const currentIds = new Set(current.map((l) => l.labelId));
+  const nextIds = new Set(uniqueIds);
+  const added = uniqueIds.filter((id) => !currentIds.has(id));
+  const removed = [...currentIds].filter((id) => !nextIds.has(id));
+  if (added.length === 0 && removed.length === 0) return;
+
+  await db.$transaction(async (tx) => {
+    if (removed.length) await tx.taskLabel.deleteMany({ where: { taskId, labelId: { in: removed } } });
+    if (added.length) await tx.taskLabel.createMany({ data: added.map((labelId) => ({ taskId, labelId })) });
+    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: taskId, action: "labels_changed", data: { added, removed } });
   });
 }
 

@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useOptimistic, useState, useTransition } from "react";
 import { PeopleCluster } from "@/components/ui/people-cluster";
-import { Dot, toneOf } from "@/components/ui/data-viz";
+import { Chip, Dot, toneOf } from "@/components/ui/data-viz";
 import { useFormat } from "@/i18n/use-format";
 import { cn } from "@/lib/cn";
 import type { CalendarDate } from "@/lib/time";
@@ -107,6 +107,11 @@ export function TaskRow({
               <Flag className="size-3.5" aria-hidden /> {t(`priority.${task.priority}`)}
             </span>
           )}
+          {task.labels.map((l) => (
+            <Chip key={l.id} tone={toneOf(l.color)}>
+              <span dir="auto">{l.name}</span>
+            </Chip>
+          ))}
         </div>
         {error && (
           <p role="alert" className="mt-1 text-[12.5px] text-accent-red">

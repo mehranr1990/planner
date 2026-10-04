@@ -33,13 +33,16 @@ Classification:
 | Task | Task engine (§11). Scheduling shape in §4 | scope / schedule / start≤due / no-self-parent / estimate≥0 CHECKs; unique (series, occurrence_on), unique (created_by, client_mutation_id) | planner, projects |
 | ChecklistItem | Ordered checklist | idx (task, sort) | task sheet |
 | RecurrenceSeries | Recurrence rule | scope, interval≥1, max_count≥1 CHECKs | recurrence |
-| TaskDependency | blocking → blocked | PK pair; no-self CHECK; cycles rejected in domain | service only (no UI) |
+| TaskDependency | blocking → blocked | PK pair; no-self CHECK; cycles rejected in domain | `DependencyPicker` (sheet), `addDependency`/`removeDependency` |
+| Comment | Comments, one level of replies (single-parent CHECK; only the `task` FK is used so far) | idx (task, created), (project, created) | `CommentsSection` (sheet) |
+| Mention | @-mentions parsed from a comment body (`@[Name](userId)` tokens) | unique (comment, mentioned); idx (mentioned) | `MENTIONED` notification, mention autocomplete |
+| Reminder | One self-service "remind me" per (task, recipient); `remind_at` always an absolute UTC instant (a "relative to due" reminder is resolved at set-time, see docs/HANDOFF.md); `delivered_at` doubles as the delivery claim | unique (task, user); idx (remind_at, delivered_at) for the due-reminder scan | `ReminderControl` (sheet), `deliverDueReminders()` (Vercel Cron) |
 | Activity | Append-only user-facing history | idx (entity, created), (workspace, created) | tasks, projects |
 | AuditEvent | Append-only compliance history | idx (workspace, created), (target) | workspace, roles, project status, invitations, teams, members |
 | WorkspaceRole | Custom role: name, base role, capabilities[] (owner-only capabilities stripped server-side) | unique (workspace, name) | `/settings/workspace/roles`, member-role assignment |
 | Team, TeamMember | Teams and their membership (LEAD/MEMBER) | PK (team, user) | `/team/teams` |
 | Invitation | Invite flow: hashed single-use token, 7-day expiry, `is_external`, `accepted_membership_id` | partial unique: one PENDING per (workspace, lower(email)) | `/team/invitations`, `/invite/[token]` |
-| Notification | In-app notification generation (`dedupe_key` unique, enforced by `notify()`) | idx (recipient, read, created) | invitation accepted, role changed; UI consumer is Phase 6 |
+| Notification | In-app notification generation (`dedupe_key` unique, enforced by `notify()`/`notifyMany()`) | idx (recipient, read, created) | invitation accepted, role changed, assignment, @mention, comments, status/due-date changes, dependency-unblocked, reminders; UI: `NotificationBell` (shell) |
 | PasswordResetToken | Hashed, single-use, expiring reset token | `token_hash` unique; idx user | `/forgot-password`, `/reset-password/[token]` |
 
 ## 3. SCHEMA-ONLY (migrated, not yet used by code)
@@ -51,7 +54,6 @@ Classification:
 | ProjectSection | lists/columns | 3 |
 | TaskAssignee, TaskWatcher | assignment and watching UI. Assignees are already honoured in access rules | 3 |
 | Label, TaskLabel | labels (partial unique on lower(name) per owner/workspace) | 3 |
-| Comment | comments (single-parent CHECK) | 3 |
 | SavedView | saved planner/project views | 3 |
 
 ## 4. Task scheduling and recurrence (implemented rules)
@@ -73,15 +75,16 @@ Recurrence:
 ## 5. PLANNED entities (by phase; not migrated)
 
 ### Phase 3 — Task engine completion & projects
-- `TaskParticipant`: §12 "participants", distinct from assignee and watcher. Open question Q-DM-1.
-- `TaskRelation (from, to, kind: RELATES | DUPLICATES)`: related tasks (§11).
-- `Reminder (target FK set, remind_at, channel, sent_at, dedupe)`: shared by tasks, habits, subscriptions and meetings. Needs the job runner.
-- `Milestone (project_id, title, due_on, status)`: §13/§15. Portfolio and roadmap reuse it.
-- `ProjectTag`: unify with `Label` (Q-DM-2).
-- `FileObject (storage_key, provider, mime, size, checksum, uploaded_by, scope)` + `Attachment (file_id, one FK per parent, CHECK)`: §39.
-- `Mention (comment_id | message_id, user_id)`: §41. Drives notifications.
-- `Reaction (target FKs, user, emoji)`: §41, reused by chat.
-- `Version` columns on Project and Comment.
+- ~~`TaskParticipant`~~ — not built (Q-DM-1 resolved: participants = watchers, no separate relation).
+- Assignees/watchers/dependencies/labels: **already modeled** (`TaskAssignee`, `TaskWatcher`, `TaskDependency`, `Label`/`TaskLabel`) — Phase 3 adds the mutation surface and UI only, not a migration.
+- `TaskRelation (from, to, kind: RELATES | DUPLICATES)`: related tasks (§11). Not yet scheduled within Phase 3's batches; revisit if needed.
+- ~~`Reminder`~~ — done (batch 3), simpler than planned: task-only (`task_id`, not a polymorphic target set — a second target type adds its own nullable FK + CHECK when one is actually needed, following the `Comment` precedent), no `channel` column (in-app only, like every notification so far), `delivered_at` doubles as both the delivery-state flag and the idempotent delivery claim (no separate `dedupe` column). Delivery also shipped in batch 3 (Vercel Cron + an idempotent per-row claim; full lifecycle policy in `docs/HANDOFF.md`) rather than waiting for the Phase 4 job runner.
+- `Milestone (project_id, title, due_on, status)`: §13/§15. Phase 3 batch 5. Portfolio and roadmap reuse it later.
+- `ProjectTag`: unify with `Label` (Q-DM-2, still open) — Phase 3 ships task-level labels only; project tagging waits for that decision.
+- `FileObject (storage_key, provider, mime, size, checksum, uploaded_by, scope)` + `Attachment (file_id, one FK per parent, CHECK)`: §39. Phase 3 batch 3, provider = Vercel Blob (Q-PO-8 resolved).
+- ~~`Mention (comment_id, user_id)`~~ — done (batch 2): migrated and wired, §2 above. `message_id` (chat) stays out of scope until Phase 7.
+- `Reaction (target FKs, user, emoji)`: §41, reused by chat. Not in Phase 3's approved scope (no reactions requirement) — deferred to Phase 7 (chat).
+- `Version` column on `Comment` (`Project` already has optimistic concurrency via other means) — add if/when concurrent-edit conflicts on comments prove to matter; not required by Phase 3's approved scope (comments are append/edit-own, not collaboratively co-edited).
 
 ### Phase 4 — Calendar & time
 - `Calendar (owner, scope, color, source: internal | external)`
@@ -172,9 +175,9 @@ Recurrence:
 
 ## 6. Missing concepts the spec implies but never names
 
-1. **Background jobs / scheduler.** Reminders, due-soon and overdue notifications, SLA breaches, recurring habits, subscription charges, scheduled automations, AI jobs and email delivery all need it. Planned as `Job` (Phase 4).
+1. **Background jobs / scheduler.** A generic, DB-backed, multi-kind job runner is still planned as `Job` (Phase 4) for SLA breaches, recurring habits, subscription charges, scheduled automations, AI jobs and email delivery. Reminder delivery (the one instance of this that Phase 3 needed) shipped narrowly in batch 3 instead — Vercel Cron + `Reminder.delivered_at` as the claim, not the generic table — so it doesn't block on Phase 4; see `docs/HANDOFF.md` for the design and the deliberate choice not to generalize it yet.
 2. **Business calendar / working hours.** Needed by SLA (§37) and workload/capacity (§52).
-3. **Reminder** as a shared entity (§11, §22, §27).
+3. ~~**Reminder** as a shared entity (§11, §22, §27)~~ — done (batch 3) for tasks; habits/subscriptions/meetings extend it with their own FK when built.
 4. **Mention** as a stored entity (§41, §42), to drive notifications.
 5. **Search index** (§48), permission-aware.
 6. **FileObject vs Attachment** split (§39 "metadata separate from storage").
@@ -188,7 +191,7 @@ Recurrence:
 
 | ID | Question |
 |---|---|
-| Q-DM-1 | Are "participants" (§12) a role distinct from watchers? |
+| ~~Q-DM-1~~ | Are "participants" (§12) a role distinct from watchers? — **resolved 2026-10-04 (Phase 3 gate, docs/phases/PHASE_3.md §C): no.** Phase 3 ships Watchers only (existing `TaskWatcher`); no `TaskParticipant` table. Revisit only if a future spec explicitly needs a role distinct from "gets notified." |
 | Q-DM-2 | Are Tag and Label (§8) one concept? (Proposed: one `Label` concept, displayed as "tags".) |
 | Q-DM-3 | Attention items: computed view or materialized table? |
 | Q-DM-4 | Planner Inbox: tasks without a date or project (current), or a separate CaptureItem inbox? |

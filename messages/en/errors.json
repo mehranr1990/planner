@@ -52,5 +52,12 @@
   "roleNameTooShort": "Use at least 2 characters",
   "currentPasswordIncorrect": "Your current password is incorrect",
   "cannotRevokeCurrentSession": "You can’t revoke the session you’re currently using. Sign out instead.",
-  "resetTokenInvalid": "This reset link is invalid or has expired."
+  "resetTokenInvalid": "This reset link is invalid or has expired.",
+  "subtaskTooDeep": "Subtasks can only be one level deep.",
+  "labelNameTaken": "A label with this name already exists.",
+  "labelNameTooShort": "Use at least 1 character.",
+  "labelForbidden": "You don’t have permission to manage this label.",
+  "commentBodyRequired": "Write something before posting.",
+  "commentThreadTooDeep": "Replies can only be one level deep.",
+  "reminderNeedsDueDate": "Give the task a due date before setting a reminder relative to it."
 }

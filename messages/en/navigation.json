@@ -8,6 +8,10 @@
   "homeLink": "Planner home",
   "quickAdd": "Quick add task",
   "accountMenu": "Account menu",
+  "notifications": {
+    "menu": "Notifications",
+    "unread": "Notifications, {count, plural, other {# unread}}"
+  },
   "signOut": "Sign out",
   "language": "Language",
   "theme": {

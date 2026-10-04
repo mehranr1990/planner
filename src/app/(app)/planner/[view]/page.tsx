@@ -7,13 +7,15 @@ import { Metric, PageTitle, Panel, SectionHeader } from "@/components/ui/surface
 import { getFormat } from "@/i18n/get-format";
 import { cn } from "@/lib/cn";
 import { listProjectOptions } from "@/features/projects/server/queries";
+import { getMentionCandidates, listTaskComments } from "@/features/collaboration/server/queries";
+import { getMyReminder } from "@/features/reminders/server/queries";
 import { QuickAdd } from "@/features/tasks/components/quick-add";
 import { TaskList } from "@/features/tasks/components/task-list";
 import { TaskSheet } from "@/features/tasks/components/task-sheet";
 import { UndoDeleteBanner } from "@/features/tasks/components/undo-delete-banner";
 import { isPlannerView, PLANNER_VIEWS, type PlannerScopeFilter } from "@/features/tasks/domain/planner-views";
 import { creatableContexts, defaultCreateContext, parseScopeFilter } from "@/features/tasks/server/contexts";
-import { getPlannerCounts, getPlannerTasks, getTaskDetail } from "@/features/tasks/server/queries";
+import { getAssignableMembers, getPlannerCounts, getPlannerTasks, getTaskDetail, getTaskLabelOptions } from "@/features/tasks/server/queries";
 import { getViewer } from "@/server/context";
 
 export async function generateMetadata({ params }: PageProps<"/planner/[view]">): Promise<Metadata> {
@@ -54,10 +56,17 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
     taskId ? getTaskDetail(viewer, taskId) : null,
     taskId ? listProjectOptions(viewer) : [],
   ]);
+  const [members, labelOptions, comments, mentionCandidates, reminder] = await Promise.all([
+    getAssignableMembers(viewer, detail),
+    getTaskLabelOptions(viewer, detail),
+    detail ? listTaskComments(viewer, detail.id) : [],
+    detail ? getMentionCandidates(viewer, detail.id) : [],
+    detail ? getMyReminder(viewer, detail.id) : null,
+  ]);
 
   const scope = scopeParam(filter);
   const withScope = (path: string) => (scope ? `${path}?scope=${scope}` : path);
-  const badge: Partial<Record<string, number>> = { inbox: counts.inbox, today: counts.today, overdue: counts.overdue };
+  const badge: Partial<Record<string, number>> = { inbox: counts.inbox, today: counts.today, overdue: counts.overdue, delegated: counts.delegated };
   const scopes = [
     { value: "", label: t("everything") },
     { value: "personal", label: tc("personal") },
@@ -197,7 +206,21 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
         </aside>
       </div>
 
-      {detail && <TaskSheet key={detail.id} task={detail} projects={projects} timezone={viewer.user.timezone} />}
+      {detail && (
+        <TaskSheet
+          key={detail.id}
+          task={detail}
+          projects={projects}
+          members={members}
+          labelOptions={labelOptions}
+          comments={comments}
+          mentionCandidates={mentionCandidates}
+          currentUser={{ id: viewer.user.id, name: viewer.user.name, avatarUrl: viewer.user.avatarUrl }}
+          reminder={reminder}
+          today={today}
+          timezone={viewer.user.timezone}
+        />
+      )}
       {deletedId && <UndoDeleteBanner taskId={deletedId} />}
     </>
   );

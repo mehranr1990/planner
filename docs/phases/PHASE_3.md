@@ -1,0 +1,66 @@
+# Phase 3 — Collaborative task management
+
+Gate document per `docs/PHASE_PLAN.md` §3 (steps A–N) and §4 (12-item pre-implementation gate, §100). Written before Batch 1 code. Product-owner approval for the Phase 3 scope (18 sub-features) and two blocking decisions (storage provider, delegated view) received 2026-10-04.
+
+## A. Scope & sources read
+
+PRODUCT_SPEC.md §11 (task engine), §12 (sharing/collaboration), §13 (projects); ARCHITECTURE.md (shared services, §91 task-creation core, background-jobs plan); DATA_MODEL.md §3 (implemented/schema-only), §5 (Phase 3 planned entities), §7 (Q-DM index); PERMISSIONS.md §1–§4; PAGE_INVENTORY.md §2.4–2.5 (task detail, projects); COMPONENT_INVENTORY.md §1–§5; ACCEPTANCE_CRITERIA.md §1/§4/§5; COVERAGE_MATRIX.md task-engine/projects/collaboration rows; current code: `prisma/schema.prisma`, `src/features/tasks/**`, `src/features/projects/server/access.ts`, `src/server/{permissions/capabilities,notifications,activity}.ts`, `src/components/ui/*`.
+
+## B. Key finding: most of the data model already exists
+
+A full-codebase audit (not assumption) found that **`TaskAssignee`, `TaskWatcher`, `TaskDependency` (with a working, DB-integration-tested cycle guard), `Label`/`TaskLabel` (with case-insensitive partial-unique name constraints already migrated), and `Task.parentId` (subtasks)** are all already modeled and partially wired (`canAssignTask`, `addDependency`, `createTask`'s assignee/label copy-forward exist; only the *mutation surface* and UI are missing). **Batch 1 needs zero schema migration.** Full detail in the per-batch sections below.
+
+## C. Decisions (approved 2026-10-04)
+
+| Decision | Resolution |
+|---|---|
+| **Q-PO-8** — file storage provider | **Vercel Blob.** Unblocks attachments (Batch 2) and avatar upload (Batch 6). Adapter lives behind a small interface (mirrors the `EmailProvider` pattern from Phase 2b) so the provider stays swappable. |
+| **Q-PO-17** — delegated/waiting view | **Add a 9th planner view, "Delegated"**: tasks the viewer owns, has assigned to someone else, and that aren't done. Without this, AS-4's existing behavior (an owner who delegates a task loses sight of it) becomes confusing the moment multi-assignee UI ships. |
+| **Q-DM-1** (resolved here, not asked — implementation detail, not a product decision) — are "participants" distinct from watchers? | **No new `TaskParticipant` relation.** The approved scope's own text treats "participants" and "watchers" as one feature ("users can follow/watch a task… allow manual follow/unfollow"). Phase 3 ships Watchers only, using the existing `TaskWatcher` table. Revisit only if a future spec explicitly needs a participant role distinct from "gets notified." |
+| **Q-PO-9** (rich-text editor) | **Not a blocker.** `Comment.body` ships as plain text, matching `Task.description`'s existing Phase-2 precedent ("rich text + sanitizer arrives with Docs, Phase 10"). |
+| **Q-PO-10** (shadcn/Radix vs hand-built) | **Not a blocker.** Continuing the proven hand-built `<details>` pattern (`ContextSwitcher`, account menu) for the new Menu/Popover-style surfaces Phase 3 needs (label picker, bulk-action menu). The tracked a11y gap (no arrow-key nav) is unchanged, not worsened. |
+| **Q-PO-7** (separate `/tasks` table view) | **Not a blocker.** `/tasks/[taskId]` (a single-task deep link) is speced independently of whether a `/tasks` *list* page ever ships. |
+
+## D. Batches (adjusted from the proposed plan based on the audit above)
+
+| Batch | Scope | Schema? |
+|---|---|---|
+| **1** | Assignees (set, workspace-aware, permission-aware), Watchers (follow/unfollow), Subtasks (create/complete/delete — reorder deferred to Batch 4's DnD work), Labels (CRUD + task tagging), Delegated planner view | None |
+| 2 | Dependencies UI (service already exists — add `removeDependency` + display), Comments (plain text, threaded one level), Mentions (parsed from comment body, notification-only — no live search-while-typing autocomplete yet) | `Comment` already exists; add `Mention` table |
+| 3 | Attachments (Vercel Blob), Reminders (data model + UI only — delivery needs the Phase 4 job runner), Activity-vocabulary cleanup | `FileObject`/`Attachment`, `Reminder` |
+| 4 | Advanced filters, bulk actions, drag & drop (task order, board columns, **subtask reorder**) | Maybe (saved-view reuse of existing `SavedView`) |
+| 5 | Board view, Timeline view, Milestones | `Milestone` |
+| 6 | Transfer ownership, avatar upload (Vercel Blob), final integration pass | None (ownership) / reuses Batch 3's `FileObject` (avatar) |
+
+Each batch ends with: typecheck, lint, full test suite, E2E, build, a migrations/changed-files/deviations report, and an explicit regression check before the next batch starts (§100).
+
+## E. Permission model for new mutations (no new capabilities needed)
+
+Confirmed by re-reading `capabilities.ts`: `tasks.assign` already exists and is granted to OWNER/ADMIN/MANAGER/MEMBER. `canAssignTask` (`tasks/server/access.ts`) already combines it with `canEditTask` and is unused today — Phase 3 is its first caller, unchanged. Watchers, labels, subtasks, and comments need **no new capability** — they're gated by the existing object-relationship rule (`canEditTask`/`findVisibleTask`), consistent with PERMISSIONS.md §2 having zero Phase-3-tagged capability rows. Label creation requires `tasks.create` in that context (same gate as creating a task there); rename/archive requires the creator or `workspace.manage` (a judgment call, documented here rather than invented silently — labels are shared workspace taxonomy, so arbitrary members shouldn't be able to delete labels others depend on, but anyone who can make tasks there can make labels there).
+
+## F. Technical notes (implementation decisions, not product decisions)
+
+- **Assignee/label changes are "set" operations**, not individual add/remove calls — `setTaskAssignees(viewer, taskId, userIds)` / `setTaskLabels(viewer, taskId, labelIds)` diff old vs. new server-side and emit one activity event with `{added, removed}`, matching how the existing `PeoplePicker.onChange` already hands back a full next-selection array. Neither is version-guarded (`task.version`) — they're relation changes, not field overwrites, consistent with how `addDependency`/`addChecklistItem` already behave.
+- **Watching is self-service and visibility-gated only** (not edit-gated) — anyone who can see a task can watch it; nobody can make someone else watch something.
+- **Activity `entityType` stays `"task"`** for all task-scoped sub-events (assignees, watchers, subtasks, labels), with details in `data`, exactly matching the existing `dependency_added` precedent — no union-type widening needed in `src/server/activity.ts`.
+- **`TASK_ASSIGNED` notification** fires on `setTaskAssignees` for newly-added assignees only (never for self-assignment, never for removed assignees).
+- **Subtask creation** reuses `createTask` (§91) via a new `"SUBTASK"` `TaskSource` literal (additive to the existing union) — no second insert path.
+- A new `src/features/labels/` feature (access/service/actions/queries) holds label CRUD; `tasks/server/service.ts` calls into it for `setTaskLabels`, keeping label-the-entity and label-the-relation cleanly separated (and ready for Project tagging later, once Q-DM-2 resolves — not attempted now, since `Project` has no label relation today and inventing one isn't in this batch's approved scope).
+
+## G. Component reuse (no new primitives needed for Batch 1)
+
+`PeoplePicker` (unchanged) covers the assignee editor. A new small `LabelPicker` (same search+toggle shape as `PeoplePicker`, plus an inline "create '<query>'" row) is the one new UI primitive Batch 1 needs — everything else (`Chip`, `IconButton`, `Field`, `ConfirmDialog` where relevant) already exists.
+
+## H. Tests planned for Batch 1
+
+Integration (`src/server/__tests__/tasks.integration.test.ts`, extending the existing suite): assignment permission (workspace member can assign within `tasks.assign` + `canEditTask`; non-member/guest cannot; personal-task assignment is owner-only), watcher follow/unfollow (self-only, visibility-gated), subtask creation/completion/soft-delete (cascades correctly, already covered by existing `softDeleteTask` test — add subtask-specific case), label create/duplicate-name rejection/archive/apply-to-task, delegated view query (owner who assigns away sees it in "delegated", not "today"/"all"). E2E: one flow exercising assign → see on teammate's planner → delegated view appears for the owner.
+
+## 12. Approval
+
+Product owner approved the Phase 3 scope and the two blocking decisions (C) on 2026-10-04. This document is the gate artifact required before Phase 3 code, per §100 item 12. Baseline before this phase: 178/178 unit+integration, 21/21 E2E flows, 22/22 visual, clean typecheck/lint/build (unchanged from the last verified state).
+
+## 13. Batch completion notes (added as each batch finishes; full detail lives in `docs/HANDOFF.md` §2/§2a)
+
+- **Batch 1** (assignees, watchers, subtasks, labels, delegated view): shipped as planned in §D, zero deviations. See `docs/HANDOFF.md` §2.
+- **Batch 2** (dependencies UI, comments, mentions): shipped as planned, plus one deviation — the product owner asked for live mention autocomplete directly in the batch 2 brief, superseding this gate doc's §D note ("no live search-while-typing autocomplete yet"). See `docs/HANDOFF.md` §2.
+- **Batch 3** (reminders, notification execution + inbox, activity hardening): shipped with two deviations from this gate doc's original batch plan (§D): **attachments were listed under batch 3 here but were explicitly excluded by the batch 3 brief** (still unscheduled — needs a decision on which batch picks it up); and **reminder delivery shipped in batch 3 too**, not deferred to Phase 4 as §D originally scoped it — done narrowly (a dedicated `Reminder` table + Vercel Cron route), not by building out the Phase 4 `Job` table early. This also resolves Q-PO-13 for this one use case (Cron + an idempotent DB claim), without closing that question for Phase 4's other, more varied consumers. Full design, the due-date-interaction policy table, and the watcher-notification policy are in `docs/HANDOFF.md` §2a.

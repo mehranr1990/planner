@@ -12,11 +12,13 @@ import { todayIn } from "@/lib/time";
 import { HEALTH_TONE } from "@/features/projects/components/project-card";
 import { ProjectControls } from "@/features/projects/components/project-controls";
 import { getProject, listProjectOptions } from "@/features/projects/server/queries";
+import { getMentionCandidates, listTaskComments } from "@/features/collaboration/server/queries";
+import { getMyReminder } from "@/features/reminders/server/queries";
 import { QuickAdd } from "@/features/tasks/components/quick-add";
 import { TaskList } from "@/features/tasks/components/task-list";
 import { TaskSheet } from "@/features/tasks/components/task-sheet";
 import { UndoDeleteBanner } from "@/features/tasks/components/undo-delete-banner";
-import { getProjectTasks, getTaskDetail } from "@/features/tasks/server/queries";
+import { getAssignableMembers, getProjectTasks, getTaskDetail, getTaskLabelOptions } from "@/features/tasks/server/queries";
 import { getViewer } from "@/server/context";
 
 export async function generateMetadata({ params }: PageProps<"/projects/[projectId]">): Promise<Metadata> {
@@ -42,6 +44,13 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
     getProjectTasks(viewer, project.id, showDone),
     taskId ? getTaskDetail(viewer, taskId) : null,
     taskId ? listProjectOptions(viewer) : [],
+  ]);
+  const [members, labelOptions, comments, mentionCandidates, reminder] = await Promise.all([
+    getAssignableMembers(viewer, detail),
+    getTaskLabelOptions(viewer, detail),
+    detail ? listTaskComments(viewer, detail.id) : [],
+    detail ? getMentionCandidates(viewer, detail.id) : [],
+    detail ? getMyReminder(viewer, detail.id) : null,
   ]);
   const today = todayIn(viewer.user.timezone);
   const total = project.openTasks + project.doneTasks;
@@ -125,7 +134,21 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
         </aside>
       </div>
 
-      {detail && <TaskSheet key={detail.id} task={detail} projects={projects} timezone={viewer.user.timezone} />}
+      {detail && (
+        <TaskSheet
+          key={detail.id}
+          task={detail}
+          projects={projects}
+          members={members}
+          labelOptions={labelOptions}
+          comments={comments}
+          mentionCandidates={mentionCandidates}
+          currentUser={{ id: viewer.user.id, name: viewer.user.name, avatarUrl: viewer.user.avatarUrl }}
+          reminder={reminder}
+          today={today}
+          timezone={viewer.user.timezone}
+        />
+      )}
       {deletedId && <UndoDeleteBanner taskId={deletedId} />}
     </>
   );

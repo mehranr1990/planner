@@ -1,6 +1,6 @@
 // Planner view catalogue. Query translation lives in src/features/tasks/server/queries.ts.
 
-export const PLANNER_VIEWS = ["inbox", "today", "upcoming", "overdue", "scheduled", "someday", "completed", "all"] as const;
+export const PLANNER_VIEWS = ["inbox", "today", "upcoming", "overdue", "scheduled", "someday", "completed", "all", "delegated"] as const;
 
 export type PlannerView = (typeof PLANNER_VIEWS)[number];
 

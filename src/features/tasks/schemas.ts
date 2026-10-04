@@ -63,3 +63,18 @@ export const checklistToggleSchema = z.object({
   itemId: z.cuid(),
   isDone: z.boolean(),
 });
+
+export const setAssigneesSchema = z.object({
+  taskId: z.cuid(),
+  userIds: z.array(z.cuid()).max(50),
+});
+
+export const setLabelsSchema = z.object({
+  taskId: z.cuid(),
+  labelIds: z.array(z.cuid()).max(50),
+});
+
+export const createSubtaskSchema = z.object({
+  parentTaskId: z.cuid(),
+  title: z.string().trim().min(1, "titleRequired").max(500),
+});

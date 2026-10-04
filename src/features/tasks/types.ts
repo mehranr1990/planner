@@ -14,6 +14,12 @@ export interface PersonRef {
   avatarUrl: string | null;
 }
 
+export interface LabelRef {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface TaskListItem {
   id: string;
   title: string;
@@ -36,12 +42,19 @@ export interface TaskListItem {
   assigneeCount: number;
   subtaskCount: number;
   checklist: { done: number; total: number };
+  labels: LabelRef[];
   canEdit: boolean;
 }
 
 export type RecurrencePreset = "none" | "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
 /** Read-only label for series created with options the preset picker cannot express. */
 export type RecurrenceDisplay = RecurrencePreset | "custom";
+
+export interface TaskDependencyRef {
+  id: string;
+  title: string;
+  status: TaskStatus;
+}
 
 export interface TaskDetail extends TaskListItem {
   description: string | null;
@@ -52,7 +65,16 @@ export interface TaskDetail extends TaskListItem {
   createdAt: string;
   createdBy: PersonRef;
   canDelete: boolean;
+  canAssign: boolean;
   subtasks: { id: string; title: string; status: TaskStatus }[];
   checklistItems: { id: string; title: string; isDone: boolean }[];
   activity: { id: string; action: string; actor: PersonRef | null; createdAt: string }[];
+  isWatching: boolean;
+  watcherCount: number;
+  /** Tasks that must finish before this one can start. */
+  blockedBy: TaskDependencyRef[];
+  /** Tasks this one blocks. */
+  blocking: TaskDependencyRef[];
+  /** True when any `blockedBy` task is still open — drives the blocked-state indicator. */
+  isBlocked: boolean;
 }

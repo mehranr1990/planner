@@ -37,5 +37,10 @@
   "people": {
     "overflow": "{count, plural, one {# more person} other {# more people}}",
     "noMatches": "No matches"
+  },
+  "labels": {
+    "noMatches": "No labels yet",
+    "remove": "Remove {name} label",
+    "createPrompt": "Create “{name}”"
   }
 }

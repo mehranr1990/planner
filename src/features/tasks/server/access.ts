@@ -49,11 +49,26 @@ const policySelect = {
   seriesId: true,
   occurrenceOn: true,
   status: true,
+  title: true,
+  parentId: true,
   assignees: { select: { userId: true } },
-  project: { select: { id: true, ownerId: true, members: { select: { userId: true, role: true } } } },
+  watchers: { select: { userId: true } },
+  project: { select: { id: true, ownerId: true, visibility: true, members: { select: { userId: true, role: true } } } },
 } satisfies Prisma.TaskSelect;
 
 export type TaskPolicyRecord = Prisma.TaskGetPayload<{ select: typeof policySelect }>;
+
+/**
+ * Everyone with a standing interest in this task's lifecycle — owner, assignees, watchers —
+ * deduped and excluding `excludeUserId` (the actor; never self-notify). Shared by every
+ * watcher-policy notification (status/schedule changes, new comments, dependency unblocks) so
+ * the recipient set is computed exactly once, consistently.
+ */
+export function taskNotifiableRecipients(task: Pick<TaskPolicyRecord, "ownerId" | "assignees" | "watchers">, excludeUserId: string): string[] {
+  const ids = new Set<string>([task.ownerId, ...task.assignees.map((a) => a.userId), ...task.watchers.map((w) => w.userId)]);
+  ids.delete(excludeUserId);
+  return [...ids];
+}
 
 /** Loads a task only if the viewer may see it; otherwise null (callers report NOT_FOUND). */
 export async function findVisibleTask(viewer: Viewer, taskId: string): Promise<TaskPolicyRecord | null> {

@@ -1,13 +1,16 @@
 import { LogOut, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { IconLink } from "@/components/ui/button";
 import { signOutAction } from "@/features/auth/server/actions";
+import { getUnreadNotificationCount, listNotifications } from "@/features/notifications/server/queries";
 import type { Viewer } from "@/server/context";
 import { ContextSwitcher } from "./context-switcher";
 import { MobileTabBar } from "./mobile-tab-bar";
+import { NotificationBell } from "./notification-bell";
 import { PrimaryNav } from "./primary-nav";
 import { SubNav } from "./sub-nav";
 import { ThemeToggle } from "./theme-toggle";
@@ -56,8 +59,8 @@ function AccountMenu({ viewer }: { viewer: Viewer }) {
   );
 }
 
-export function AppShell({ viewer, children }: { viewer: Viewer; children: ReactNode }) {
-  const t = useTranslations();
+export async function AppShell({ viewer, children }: { viewer: Viewer; children: ReactNode }) {
+  const [t, notifications, unreadCount] = await Promise.all([getTranslations(), listNotifications(viewer), getUnreadNotificationCount(viewer)]);
   return (
     <div className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-full focus:bg-surface-elevated focus:px-4 focus:py-2">
@@ -78,6 +81,7 @@ export function AppShell({ viewer, children }: { viewer: Viewer; children: React
             <Plus className="size-[18px]" strokeWidth={1.75} aria-hidden />
           </IconLink>
           <ThemeToggle theme={viewer.user.theme} />
+          <NotificationBell notifications={notifications} unreadCount={unreadCount} timezone={viewer.user.timezone} />
           <AccountMenu viewer={viewer} />
         </div>
       </header>

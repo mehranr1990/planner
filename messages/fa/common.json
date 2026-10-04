@@ -37,5 +37,10 @@
   "people": {
     "overflow": "{count, plural, other {# نفر دیگر}}",
     "noMatches": "نتیجه‌ای یافت نشد"
+  },
+  "labels": {
+    "noMatches": "هنوز برچسبی نیست",
+    "remove": "حذف برچسب «{name}»",
+    "createPrompt": "ساخت «{name}»"
   }
 }

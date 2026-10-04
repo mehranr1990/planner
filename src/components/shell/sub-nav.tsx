@@ -7,6 +7,7 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  Forward,
   Inbox,
   LayoutList,
   type LucideIcon,
@@ -25,6 +26,7 @@ const PLANNER_VIEW_ICONS: Record<PlannerView, LucideIcon> = {
   someday: Archive,
   completed: CheckCircle2,
   all: LayoutList,
+  delegated: Forward,
 };
 
 /**

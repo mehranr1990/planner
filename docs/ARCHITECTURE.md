@@ -74,7 +74,7 @@ Every entry point (planner, project, calendar, chat, meeting, forms, capture, au
 | Action boundary | `src/server/run-action.ts` (`runAction`, `invalidInput`): revalidate + localize `DomainError` codes; `src/server/errors.ts` (`DomainError`) | ✅ Phase 2a |
 | Permissions | `server/permissions/capabilities.ts` + `features/*/server/access.ts` | ✅ |
 | Activity / audit | `server/activity.ts` (`recordActivity`, `recordAudit`) | ✅ |
-| Notifications | `server/notifications.ts` — `notify(tx, {recipient, type, entity, dedupeKey})`, fan-out respects preferences | Phase 2b |
+| Notifications | `server/notifications.ts` — `notify(tx, {recipient, type, entity, dedupeKey})` (single) + `notifyMany(tx, recipientIds, {…, dedupeKeyFor})` (fan-out, added Phase 3 batch 3). Preferences (`NotificationPreference`) still unused — Phase 6 | Phase 2b core; `notifyMany` + in-app inbox UI (`features/notifications/*`, `NotificationBell`) Phase 3 batch 3 |
 | Comments / mentions / reactions / watchers | `features/collaboration/server/*` (one for all parent types) | Phase 3 |
 | Files | `server/files/*` (provider adapter + `Attachment` service; access = parent access) | Phase 3 |
 | Approvals | `features/approvals/server/service.ts` (generic source refs) | Phase 9 |
@@ -105,10 +105,11 @@ Rules:
 - Source kinds: `QUICK_ADD, PROJECT, CALENDAR, CHAT, MEETING, FORM, CAPTURE, AUTOMATION, AI, PLAYBOOK, DUPLICATE, RECURRENCE`.
 - Source metadata currently lives on the creation Activity row. A queryable `TaskSource` link table is Q-DM-6.
 
-## Background jobs (planned, Phase 4)
+## Background jobs (generic runner planned, Phase 4; reminders shipped narrowly in Phase 3)
 
 These features need deferred or scheduled work:
-- reminders, due-soon and overdue notifications
+- ~~reminders~~ — **done (Phase 3 batch 3)**, narrowly: see below, not via the generic table
+- due-soon and overdue notifications (beyond the per-reminder `TASK_DUE_SOON` that batch 3 added)
 - invitation expiry
 - habit and check-in prompts
 - SLA breach detection
@@ -118,7 +119,9 @@ These features need deferred or scheduled work:
 - AI jobs
 - search re-indexing
 
-Design: a DB `Job` table (`run_at`, `dedupe_key UNIQUE`, attempts, status), claimed with `FOR UPDATE SKIP LOCKED` by a Vercel Cron-triggered route (or an external worker; Q-PO-13). Handlers are idempotent; retries use backoff.
+Design (still Phase 4, for everything above except reminders): a DB `Job` table (`run_at`, `dedupe_key UNIQUE`, attempts, status), claimed with `FOR UPDATE SKIP LOCKED` by a Vercel Cron-triggered route (or an external worker; Q-PO-13 — now partially resolved, see below). Handlers are idempotent; retries use backoff.
+
+**Reminders (Phase 3 batch 3, shipped ahead of this table):** `features/reminders/server/engine.ts`'s `deliverDueReminders()`, triggered by `vercel.json`'s `/api/cron/reminders` entry. Deliberately does **not** use the generic `Job` table above — a `Reminder` row's own `delivered_at` *is* the claim (`UPDATE … WHERE delivered_at IS NULL` inside the same transaction as the notification insert; two workers racing the same row simply leaves one of them affecting zero rows — no `FOR UPDATE SKIP LOCKED` needed at this scale). This resolves Q-PO-13 for reminders specifically (Cron + an idempotent per-row DB claim); the other consumers in the list above still await the fuller `Job` table once there's more than one kind of scheduled work to generalize over. Full design and the due-date-interaction policy: `docs/HANDOFF.md` §2a.
 
 ## Testing layers (§86, §87)
 

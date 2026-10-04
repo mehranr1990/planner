@@ -1,0 +1,18 @@
+{
+  "heading": "Notifications",
+  "markAllRead": "Mark all read",
+  "empty": "No notifications yet",
+  "item": {
+    "TASK_ASSIGNED": "{actor} assigned you to {title}",
+    "TASK_COMMENTED": "{actor} commented on {title}",
+    "MENTIONED": "{actor} mentioned you in {title}",
+    "TASK_DUE_SOON": "Reminder: {title}",
+    "TASK_OVERDUE": "{title} is overdue",
+    "TASK_STATUS_CHANGED": "{actor} updated the status of {title}",
+    "TASK_DUE_DATE_CHANGED": "{actor} changed the due date of {title}",
+    "TASK_UNBLOCKED": "{title} is no longer blocked",
+    "INVITATION": "{actor} accepted your invitation to {title}",
+    "WORKSPACE_ROLE_CHANGED": "Your role is now {title}",
+    "other": "Update: {title}"
+  }
+}

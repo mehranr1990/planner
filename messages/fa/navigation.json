@@ -8,6 +8,10 @@
   "homeLink": "خانهٔ planner",
   "quickAdd": "افزودن سریع کار",
   "accountMenu": "منوی حساب",
+  "notifications": {
+    "menu": "اعلان‌ها",
+    "unread": "اعلان‌ها، {count, plural, other {# مورد خوانده‌نشده}}"
+  },
   "signOut": "خروج",
   "language": "زبان",
   "theme": {

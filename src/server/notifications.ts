@@ -38,3 +38,15 @@ export async function notify(tx: Tx, input: NotifyInput): Promise<void> {
     if (!isUniqueViolation(e)) throw e; // already notified for this event — not an error
   }
 }
+
+/**
+ * Fans the same event out to several recipients (a "watcher policy" notification — status
+ * changes, new comments, dependency unblocks…). `dedupeKeyFor` must vary per recipient (and
+ * usually per event occurrence, e.g. by including the entity's post-mutation version) so the
+ * same event notifies each recipient exactly once, and a repeat of the *same* event is a no-op.
+ */
+export async function notifyMany(tx: Tx, recipientIds: readonly string[], input: Omit<NotifyInput, "recipientId" | "dedupeKey"> & { dedupeKeyFor: (recipientId: string) => string }): Promise<void> {
+  for (const recipientId of recipientIds) {
+    await notify(tx, { ...input, recipientId, dedupeKey: input.dedupeKeyFor(recipientId) });
+  }
+}

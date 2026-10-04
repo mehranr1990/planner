@@ -32,6 +32,7 @@ export const TASK_SOURCES = [
   "PLAYBOOK",
   "DUPLICATE",
   "RECURRENCE",
+  "SUBTASK",
 ] as const;
 export type TaskSource = (typeof TASK_SOURCES)[number];
 
