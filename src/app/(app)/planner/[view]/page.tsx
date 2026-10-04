@@ -1,3 +1,4 @@
+import { Calendar, Maximize2, Share2, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -38,6 +39,11 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
   const sp = await searchParams;
   const viewer = await getViewer();
   const [t, tc, f] = await Promise.all([getTranslations("planner"), getTranslations("common"), getFormat()]);
+  const panelActions: { Icon: LucideIcon; label: string }[] = [
+    { Icon: Share2, label: t("panelActions.share") },
+    { Icon: Calendar, label: t("panelActions.calendar") },
+    { Icon: Maximize2, label: t("panelActions.expand") },
+  ];
   const filter = parseScopeFilter(viewer, sp.scope);
   const taskId = typeof sp.task === "string" ? sp.task : null;
   const deletedId = typeof sp.deleted === "string" ? sp.deleted : null;
@@ -65,7 +71,7 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <Panel aria-labelledby="view-heading">
           {/* Reference panel header: section title at the start, selectable pills centred at the top. */}
-          <div className="mb-4 flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center lg:gap-4">
+          <div className="mb-4 flex flex-col gap-3 lg:grid lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-4">
             <SectionHeader className="mb-0 min-w-0" title={<span id="view-heading">{t(`views.${view}.label`)}</span>} count={tasks.length} />
             <nav aria-label={t("viewsNav")} className="scrollbar-none -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
               <ul className="flex w-max items-center gap-1.5">
@@ -101,7 +107,19 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
                 })}
               </ul>
             </nav>
-            <div aria-hidden className="hidden lg:block" />
+            {/* Visual only, matching the reference's panel-header actions — no feature behind these yet,
+                so these are inert decoration (aria-hidden), not buttons that look clickable but do nothing. */}
+            <div aria-hidden className="hidden items-center justify-end gap-2 lg:flex">
+              {panelActions.map(({ Icon, label }) => (
+                <span
+                  key={label}
+                  title={label}
+                  className="inline-flex size-10 items-center justify-center rounded-full bg-surface-elevated text-foreground ring-1 ring-border-subtle"
+                >
+                  <Icon className="size-[18px]" strokeWidth={1.75} />
+                </span>
+              ))}
+            </div>
           </div>
           <p className="mb-4 text-[12.5px] text-foreground-muted">{t(`views.${view}.description`)}</p>
           {viewer.workspaces.length > 0 && (

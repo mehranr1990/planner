@@ -197,6 +197,21 @@ Product-owner request: redesign the top app shell to match a reference's horizon
 
 Regression (§90): `Rail`/`ThemeToggle`/`ContextSwitcher`/`nav.ts` usages were grep-audited (COMPONENT_INVENTORY.md §3) before changing; only `AppShell` consumed them. `e2e/workspace.spec.ts`'s theme-toggle test asserted on the old two-button `aria-pressed` pattern — updated to assert on the new single-button's flipping accessible name instead (same `data-theme`/persistence assertions, unchanged). All 22 visual baselines re-recorded (every page shares the shell) and verified stable across two consecutive runs; all 21 E2E flows, all 178 unit/integration tests, typecheck, lint and build re-verified green after the change.
 
+### Follow-up: contextual left sub-nav + decorative panel actions (same day)
+
+Product-owner follow-up on the same reference: the top nav stays the primary module switcher, but the reference's left icon rail should come back as **contextual sub-navigation** for whichever module is active — e.g. Planner's 8 views (Today/Inbox/Upcoming/Overdue/Scheduled/Someday/Completed/All tasks) as icons on the left, in addition to (not instead of) the existing panel pill row. The panel header's 3 decorative action icons (share/calendar/expand, added earlier the same day, intentionally non-functional pending a real feature) are kept exactly as they were, explicitly for later reuse ("filter or something else").
+
+| Change | Detail |
+|---|---|
+| `SubNav` (new) | Sticky left rail, `hidden lg:flex`, `w-[76px]`. Client component: reads `usePathname()` and renders icon links only for `/planner/*` today — other modules don't have sub-views yet, so it renders `null` there rather than inventing content (§98) |
+| `AppShell` | Header stays full-width and on top; below it, a new `flex` row holds `SubNav` + `main`. Horizontal page padding moved from `<main>` to this row so the page's left edge stays aligned with the header's logo whether or not `SubNav` renders |
+| Planner panel header grid | `lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` → `[auto_minmax(0,1fr)_auto]` — the pills nav is now the one flexible/scrollable column (title and the action icons keep their natural size) so it can no longer be squeezed to zero width by a long pill row (see bug below) |
+| Two "Planner views" landmarks | `SubNav` and the panel's pill `<nav>` now both exist on `/planner/*`. Playwright's `getByRole` name matching is substring-based, so `aria-label`s that merely *differed* (e.g. "Planner views (sidebar)") still collided. Gave `SubNav` a fully distinct label, `planner.viewsSidebarNav` = "Planner sections" |
+
+**Bug caught before landing:** the first grid layout (`minmax(0,1fr)_auto_minmax(0,1fr)` with the pills as the `auto` column) let a long pill row claim its full max-content width and squeeze the `1fr` action-icons column to zero — the 3 decorative icons silently failed to render on `fa`/`fa-dark` (longer Persian labels) while working fine on `en`. Confirmed by temporarily giving the icon wrapper a bright debug background (visible even at 0-ish width would still show a sliver; it showed nothing — zero width, not a contrast issue) before landing the grid-role swap above. A `disabled`-styled first attempt at the icons was also separately too low-contrast (`disabled:opacity-50` over an already-subtle hairline ring) — fixed by rendering them as plain `aria-hidden` spans with `bg-surface-elevated` fill instead of relying on native `disabled` styling for something that was never a real `<button>` action to begin with.
+
+All 22 visual baselines re-recorded and verified stable; all 21 E2E flows (including a `getByRole('navigation', { name: 'Planner views' })` strict-mode failure caught by the first label fix and resolved by the second); all 178 unit/integration tests; typecheck, lint and build all green after the change.
+
 ## 4. Regression (§90)
 
 Before changing a shared component or service:

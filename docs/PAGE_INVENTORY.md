@@ -23,7 +23,7 @@ Unseen pages follow §96: compose the existing patterns (Panel/Card/SectionHeade
 - mobile RTL
 
 Global layout (revised 2026-10-04, top-shell redesign — see DESIGN_SYSTEM.md §7):
-- Desktop ≥1024: one horizontal header (logo + context start, primary nav centred, actions end) + content, with a right-side Sheet for detail. No side rail.
+- Desktop ≥1024: one horizontal header (logo + context start, primary nav centred, actions end) + content, with a right-side Sheet for detail. A left sub-nav rail (`SubNav`) appears only for modules with their own sub-views (currently Planner's 8 views); it is additive to a module's own in-panel navigation, not a replacement.
 - Tablet/Mobile <1024: header keeps only logo/context (start) and actions (end); primary navigation moves to the floating bottom tab bar + FAB. Detail and forms open as bottom sheets; tables become record cards.
 
 ---
@@ -316,6 +316,7 @@ Remaining: transfer-ownership confirm overlay (→ Phase 3, no acceptance criter
 ## 3. Navigation plan
 
 - **Desktop header nav (current):** Home · Planner · Projects · Team, as centred text pills (`PrimaryNav`). Settings lives in the account menu; the theme toggle is a header action, not part of this list.
+- **Desktop sub-nav (current):** `SubNav`, left, contextual per module — Planner's 8 views (Inbox/Today/Upcoming/Overdue/Scheduled/Someday/Completed/All tasks) today. Joins for other modules only once they have real sub-views of their own (D7).
 - Modules join only when shipped (D7). Target grouping:
   - **Work:** Home, Planner, Calendar, Projects, Chat
   - **Life:** Habits, Goals, Focus

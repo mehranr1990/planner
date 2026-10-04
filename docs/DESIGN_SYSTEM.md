@@ -109,23 +109,29 @@ Spacing scale is Tailwind's 4px grid. Panels pad 24px (mobile 16px); gaps betwee
 
 ## 7. Navigation
 
-Revised 2026-10-04 (reference alignment, top-shell redesign): the left icon rail described below in
-§1's reference observations was never the only pattern in the source references — the same
-screenshots also show a horizontal top nav (logo left, centred text pills, black active pill,
-round actions + avatar right). The product owner chose that variant for the shell; there is no
-desktop rail.
+Revised 2026-10-04 (reference alignment, top-shell redesign): the source references show both a
+horizontal top nav (logo left, centred text pills, black active pill, round actions + avatar
+right) **and** a left icon rail — not an either/or. The product owner's final call: the top nav is
+the **primary** module switcher; the left rail comes back as **contextual sub-navigation** for
+whichever module is active, not as a second copy of the primary nav.
 
-- **Desktop ≥1024px:** one horizontal header, no side rail. Three zones in a
-  `[minmax(0,1fr)_auto_minmax(0,1fr)]` grid (same pattern as §14's panel header): **start** — logo
-  + compact context switcher (personal ↔ workspace); **centre** — primary nav as plain text links,
-  the active one in a black pill (`PrimaryNav`, only modules that exist — currently Home, Planner,
-  Projects, Team); **end** — quick add, theme toggle, account avatar, all 36–40px circular actions.
-  Sits directly on the page background (no card, no shadow). Below it, each page renders its own
-  compact `PageTitle`.
-- **Tablet/Mobile <1024px:** the centre nav hides (`PrimaryNav` is `hidden lg:flex`); the header
-  keeps logo + context switcher (start) and actions (end) only. Primary navigation moves to
-  `MobileTabBar`: a floating pill bar (Home, Planner, Projects, Team) + black circular quick-add
-  FAB, unaffected by the desktop redesign. Detail views open as bottom sheets.
+- **Desktop ≥1024px:**
+  - **Header** (full width, top): three zones in a `[minmax(0,1fr)_auto_minmax(0,1fr)]` grid (same
+    pattern as §14's panel header): **start** — logo + compact context switcher (personal ↔
+    workspace); **centre** — primary nav as plain text links, the active one in a black pill
+    (`PrimaryNav`, only modules that exist — currently Home, Planner, Projects, Team); **end** —
+    quick add, theme toggle, account avatar, all 36–40px circular actions. Sits directly on the
+    page background (no card, no shadow).
+  - **Sub-nav** (`SubNav`, left, below the header): a 76px icon rail scoped to the active module's
+    own views/pages, shown only for modules that actually have sub-views (currently Planner's 8
+    views: Inbox/Today/Upcoming/Overdue/Scheduled/Someday/Completed/All tasks). Renders nothing for
+    modules without sub-views rather than inventing placeholder icons (§98). This is additive to,
+    not a replacement for, a module's own in-panel navigation (e.g. Planner's pill row stays).
+  - Below the header, each page renders its own compact `PageTitle`.
+- **Tablet/Mobile <1024px:** the centre nav and `SubNav` both hide; the header keeps logo + context
+  switcher (start) and actions (end) only. Primary navigation moves to `MobileTabBar`: a floating
+  pill bar (Home, Planner, Projects, Team) + black circular quick-add FAB. Detail views open as
+  bottom sheets.
 - Settings has no standalone nav entry — it lives in the account (avatar) menu on every breakpoint.
 
 ## 8. Component rules

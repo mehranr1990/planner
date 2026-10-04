@@ -9,6 +9,7 @@ import type { Viewer } from "@/server/context";
 import { ContextSwitcher } from "./context-switcher";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { PrimaryNav } from "./primary-nav";
+import { SubNav } from "./sub-nav";
 import { ThemeToggle } from "./theme-toggle";
 
 function BrandMark() {
@@ -80,7 +81,14 @@ export function AppShell({ viewer, children }: { viewer: Viewer; children: React
           <AccountMenu viewer={viewer} />
         </div>
       </header>
-      <main id="main" className="min-w-0 flex-1 px-4 pt-4 pb-32 sm:px-6 sm:pt-5 lg:px-8 lg:pb-10">{children}</main>
+      {/* Horizontal padding lives here (not on <main>) so the page's left edge stays aligned with
+          the header's logo whether or not SubNav renders for this section. */}
+      <div className="flex min-w-0 flex-1 px-4 sm:px-6 lg:gap-4 lg:px-8">
+        <SubNav />
+        <main id="main" className="min-w-0 flex-1 pt-4 pb-32 sm:pt-5 lg:pb-10">
+          {children}
+        </main>
+      </div>
       <MobileTabBar />
     </div>
   );

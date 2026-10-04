@@ -1,7 +1,13 @@
 {
   "title": "Planner",
   "viewsNav": "Planner views",
+  "viewsSidebarNav": "Planner sections",
   "filterBySpace": "Filter by space",
+  "panelActions": {
+    "share": "Share (coming soon)",
+    "calendar": "Calendar view (coming soon)",
+    "expand": "Expand (coming soon)"
+  },
   "everything": "Everything",
   "truncated": "Showing the first {limit, number} tasks. Narrow the view with a space filter.",
   "views": {

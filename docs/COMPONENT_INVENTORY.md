@@ -10,7 +10,7 @@ Required by §95 (reuse before duplicating) and §90 (know every usage before ch
 | §95 name | Ours | Status |
 |---|---|---|
 | AppShell | `AppShell` | ✅ |
-| NavigationRail | `PrimaryNav` (desktop, in the header) + `MobileTabBar` (<1024px) — no side rail since the 2026-10-04 top-shell redesign | ✅ |
+| NavigationRail | `PrimaryNav` (desktop, in the header, primary modules) + `SubNav` (desktop, left, contextual sub-views of the active module — Planner only today) + `MobileTabBar` (<1024px) | ✅ |
 | TopBar | header inside `AppShell` | ✅ (to be extracted when contextual actions arrive, Phase 3) |
 | PageHeader | `PageTitle` | ✅ (project detail uses a custom header; see §4) |
 | Surface / Section / Card | `Panel` / `SectionHeader` / `Card`, `DarkCard` | ✅ |
@@ -64,7 +64,7 @@ Required by §95 (reuse before duplicating) and §90 (know every usage before ch
 
 | Component | Feature | Used by |
 |---|---|---|
-| `AppShell`, `PrimaryNav`, `MobileTabBar`, `ContextSwitcher`, `ThemeToggle`, `nav.ts` | shell | `(app)/layout.tsx` |
+| `AppShell`, `PrimaryNav`, `SubNav`, `MobileTabBar`, `ContextSwitcher`, `ThemeToggle`, `nav.ts` | shell | `(app)/layout.tsx` |
 | `QuickAdd` | tasks | home, planner, project detail |
 | `TaskList` → `TaskRow` | tasks | home, planner, project detail |
 | `TaskSheet` | tasks | planner, project detail |
