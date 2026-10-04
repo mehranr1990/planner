@@ -34,58 +34,67 @@ function Status({ message }: { message: { ok: boolean; text: string } | null }) 
 const WEEK_STARTS = ["1", "0", "6"] as const;
 const THEMES = ["SYSTEM", "LIGHT", "DARK"] as const;
 
-export function PreferencesForm({
-  name,
-  timezone,
-  weekStartsOn,
-  theme,
-  locale,
-  timezones,
-}: {
-  name: string;
-  timezone: string;
-  weekStartsOn: number;
-  theme: "SYSTEM" | "LIGHT" | "DARK";
-  locale: AppLocale;
-  timezones: string[];
-}) {
-  const t = useTranslations("settings.prefs");
-  const router = useRouter();
+export function ProfileForm({ name }: { name: string }) {
+  const t = useTranslations("settings.profile");
   const { pending, message, run } = useAction();
   return (
     <form
-      action={(form) => {
-        const nextLocale = String(form.get("locale")) as AppLocale;
-        run(
-          () =>
-            updatePreferencesAction({
-              name: String(form.get("name")),
-              timezone: String(form.get("timezone")),
-              weekStartsOn: Number(form.get("weekStartsOn")),
-              theme: String(form.get("theme")) as (typeof THEMES)[number],
-              locale: nextLocale,
-            }),
-          t("saved"),
-          // A language change re-renders the current route in place: same URL, same workspace,
-          // same session. The server picks the new locale up from the account.
-          () => nextLocale !== locale && router.refresh(),
-        );
-      }}
-      // One column, labels at the start (reference form).
+      action={(form) => run(() => updatePreferencesAction({ name: String(form.get("name")) }), t("saved"))}
       className="flex flex-col gap-4"
     >
-      <Field label={t("name")} htmlFor="pref-name">
-        <Input id="pref-name" name="name" dir="auto" defaultValue={name} required maxLength={80} />
+      <Field label={t("name")} htmlFor="profile-name">
+        <Input id="profile-name" name="name" dir="auto" defaultValue={name} required maxLength={80} />
       </Field>
-      <Field label={t("language")} htmlFor="pref-locale" hint={t("languageHint")}>
-        <Select id="pref-locale" name="locale" defaultValue={locale}>
-          {LOCALES.map((l) => (
-            <option key={l} value={l} lang={l}>
-              {LOCALE_NAMES[l]}
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" variant="primary" disabled={pending}>
+          {t("save")}
+        </Button>
+        <Status message={message} />
+      </div>
+    </form>
+  );
+}
+
+export function AppearanceForm({ theme }: { theme: "SYSTEM" | "LIGHT" | "DARK" }) {
+  const t = useTranslations("settings.appearance");
+  const { pending, message, run } = useAction();
+  return (
+    <form
+      action={(form) => run(() => updatePreferencesAction({ theme: String(form.get("theme")) as (typeof THEMES)[number] }), t("saved"))}
+      className="flex flex-col gap-4"
+    >
+      <Field label={t("theme")} htmlFor="appearance-theme">
+        <Select id="appearance-theme" name="theme" defaultValue={theme}>
+          {THEMES.map((th) => (
+            <option key={th} value={th}>
+              {t(`themes.${th}`)}
             </option>
           ))}
         </Select>
       </Field>
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" variant="primary" disabled={pending}>
+          {t("save")}
+        </Button>
+        <Status message={message} />
+      </div>
+    </form>
+  );
+}
+
+export function PreferencesForm({ timezone, weekStartsOn, timezones }: { timezone: string; weekStartsOn: number; timezones: string[] }) {
+  const t = useTranslations("settings.prefs");
+  const { pending, message, run } = useAction();
+  return (
+    <form
+      action={(form) =>
+        run(
+          () => updatePreferencesAction({ timezone: String(form.get("timezone")), weekStartsOn: Number(form.get("weekStartsOn")) }),
+          t("saved"),
+        )
+      }
+      className="flex flex-col gap-4"
+    >
       <Field label={t("timezone")} htmlFor="pref-tz" hint={t("timezoneHint")}>
         <Select id="pref-tz" name="timezone" defaultValue={timezone} dir="ltr">
           {timezones.map((tz) => (
@@ -104,11 +113,33 @@ export function PreferencesForm({
           ))}
         </Select>
       </Field>
-      <Field label={t("appearance")} htmlFor="pref-theme">
-        <Select id="pref-theme" name="theme" defaultValue={theme}>
-          {THEMES.map((th) => (
-            <option key={th} value={th}>
-              {t(`themes.${th}`)}
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" variant="primary" disabled={pending}>
+          {t("save")}
+        </Button>
+        <Status message={message} />
+      </div>
+    </form>
+  );
+}
+
+export function LanguageForm({ locale }: { locale: AppLocale }) {
+  const t = useTranslations("settings.account");
+  const router = useRouter();
+  const { pending, message, run } = useAction();
+  return (
+    <form
+      action={(form) => {
+        const nextLocale = String(form.get("locale")) as AppLocale;
+        run(() => updatePreferencesAction({ locale: nextLocale }), t("languageSaved"), () => nextLocale !== locale && router.refresh());
+      }}
+      className="flex flex-col gap-4"
+    >
+      <Field label={t("language")} htmlFor="account-locale" hint={t("languageHint")}>
+        <Select id="account-locale" name="locale" defaultValue={locale}>
+          {LOCALES.map((l) => (
+            <option key={l} value={l} lang={l}>
+              {LOCALE_NAMES[l]}
             </option>
           ))}
         </Select>
@@ -149,3 +180,5 @@ export function CreateWorkspaceForm({ timezone }: { timezone: string }) {
     </form>
   );
 }
+
+export { Status, useAction };

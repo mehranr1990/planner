@@ -5,7 +5,8 @@ import { recordActivity, recordAudit } from "@/server/activity";
 import { db, isUniqueViolation } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { actorIn, type Viewer } from "@/server/context";
-import { canChangeRole, type BaseRole } from "@/server/permissions/capabilities";
+import { notify } from "@/server/notifications";
+import { can, canChangeRole, canRemoveMember, type BaseRole } from "@/server/permissions/capabilities";
 
 /** URL-safe slug with a random suffix. Non-Latin names fall back to "workspace-<hex>". */
 export function slugify(name: string, suffix = randomBytes(3).toString("hex")): string {
@@ -81,5 +82,91 @@ export async function changeMemberRole(viewer: Viewer, input: { workspaceId: str
       after: { role: input.role },
     });
     await recordActivity(tx, { workspaceId: input.workspaceId, actorId: viewer.user.id, entityType: "membership", entityId: target.id, action: "role_changed" });
+    await notify(tx, {
+      recipientId: input.userId,
+      workspaceId: input.workspaceId,
+      actorId: viewer.user.id,
+      type: "WORKSPACE_ROLE_CHANGED",
+      entityType: "membership",
+      entityId: target.id,
+      title: input.role,
+      deepLink: "/team",
+      dedupeKey: `membership:${target.id}:role_changed:${input.role}`,
+    });
+  });
+}
+
+/** Removing a member deletes their membership outright; last-owner guard reuses canRemoveMember. */
+export async function removeMember(viewer: Viewer, input: { workspaceId: string; userId: string }): Promise<void> {
+  const actor = actorIn(viewer, input.workspaceId);
+  if (!actor) throw new DomainError(NOT_FOUND);
+
+  await db.$transaction(async (tx) => {
+    const target = await tx.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: input.userId } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target || target.status !== "ACTIVE") throw new DomainError(NOT_FOUND);
+    if (!canRemoveMember(actor, { userId: input.userId, role: target.role as BaseRole })) throw new DomainError("roleChangeForbidden");
+    if (target.role === "OWNER") {
+      const owners = await tx.membership.count({ where: { workspaceId: input.workspaceId, role: "OWNER", status: "ACTIVE" } });
+      if (owners <= 1) throw new DomainError("lastOwner");
+    }
+    await tx.membership.delete({ where: { id: target.id } });
+    await recordAudit(tx, { workspaceId: input.workspaceId, actorId: viewer.user.id, action: "member.removed", targetType: "membership", targetId: target.id });
+    await recordActivity(tx, { workspaceId: input.workspaceId, actorId: viewer.user.id, entityType: "membership", entityId: target.id, action: "removed" });
+  });
+}
+
+async function setMemberStatus(viewer: Viewer, input: { workspaceId: string; userId: string }, status: "ACTIVE" | "DEACTIVATED") {
+  const actor = actorIn(viewer, input.workspaceId);
+  if (!actor) throw new DomainError(NOT_FOUND);
+  if (!can(actor, "members.deactivate")) throw new DomainError("roleChangeForbidden");
+
+  await db.$transaction(async (tx) => {
+    const target = await tx.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: input.userId } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target) throw new DomainError(NOT_FOUND);
+    if (status === "DEACTIVATED") {
+      if (target.role === "OWNER") throw new DomainError("lastOwner");
+      if (target.status !== "ACTIVE") throw new DomainError(NOT_FOUND);
+    } else if (target.status !== "DEACTIVATED") throw new DomainError(NOT_FOUND);
+
+    await tx.membership.update({ where: { id: target.id }, data: { status, deactivatedAt: status === "DEACTIVATED" ? new Date() : null } });
+    await recordAudit(tx, {
+      workspaceId: input.workspaceId,
+      actorId: viewer.user.id,
+      action: status === "DEACTIVATED" ? "member.deactivated" : "member.reactivated",
+      targetType: "membership",
+      targetId: target.id,
+    });
+  });
+}
+
+export const deactivateMember = (viewer: Viewer, input: { workspaceId: string; userId: string }) => setMemberStatus(viewer, input, "DEACTIVATED");
+export const reactivateMember = (viewer: Viewer, input: { workspaceId: string; userId: string }) => setMemberStatus(viewer, input, "ACTIVE");
+
+export async function updateWorkspaceSettings(viewer: Viewer, input: { workspaceId: string; name?: string; iconUrl?: string | null; timezone?: string }): Promise<void> {
+  const actor = actorIn(viewer, input.workspaceId);
+  if (!actor) throw new DomainError(NOT_FOUND);
+  if (!can(actor, "workspace.manage")) throw new DomainError("roleChangeForbidden");
+
+  await db.$transaction(async (tx) => {
+    const before = await tx.workspace.findUniqueOrThrow({ where: { id: input.workspaceId }, select: { name: true, iconUrl: true, timezone: true } });
+    await tx.workspace.update({
+      where: { id: input.workspaceId },
+      data: { name: input.name, iconUrl: input.iconUrl, timezone: input.timezone },
+    });
+    await recordAudit(tx, {
+      workspaceId: input.workspaceId,
+      actorId: viewer.user.id,
+      action: "workspace.settings_updated",
+      targetType: "workspace",
+      targetId: input.workspaceId,
+      before,
+      after: { name: input.name ?? before.name, iconUrl: input.iconUrl ?? before.iconUrl, timezone: input.timezone ?? before.timezone },
+    });
   });
 }

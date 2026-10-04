@@ -164,23 +164,50 @@ The catalog tests enforce key and placeholder parity.
 
 The Quick Add parser (`features/tasks/domain/quick-add.ts`) recognises English keywords only, by design (I18N-12). A future `parseQuickAdd(input, today, locale)` dispatcher can add per-locale grammars without touching the English one.
 
-## Local development
+## Database (Neon)
+
+There is no local database process — PGlite was used through Phase 2b and has been fully retired (2026-10). Every environment is a [Neon](https://neon.tech) Postgres branch:
+
+| Environment | Neon branch | How it gets its connection |
+|---|---|---|
+| Production | the project's production/main branch | Vercel ↔ Neon integration injects `DATABASE_URL` + `DATABASE_URL_UNPOOLED` for the Production deployment |
+| Preview | one branch **per** Vercel Preview deployment, created automatically | same integration, scoped to that deployment only |
+| Development | a long-lived personal/shared dev branch | developer's own `.env` (not committed) |
+| Test / CI | a dedicated, disposable test branch | CI secrets (`NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`); never Production or another deployment's Preview branch |
+
+Two connection strings matter, and they are not interchangeable:
+- **`DATABASE_URL`** — Neon's **pooled** endpoint (hostname contains `-pooler`). The application runtime uses only this, via `@prisma/adapter-pg` in `src/server/db.ts`.
+- **`DIRECT_URL`** (or `DATABASE_URL_UNPOOLED`) — the **unpooled** endpoint. Only `prisma.config.ts` (the Prisma CLI — migrate, db pull, studio) uses this. Resolution order: `DIRECT_URL` if explicitly set, else `DATABASE_URL_UNPOOLED`. **There is no fallback to `DATABASE_URL`** — if neither direct variable is set, the CLI fails closed with a clear error rather than silently migrating through the pooler. `prisma generate` is the one CLI command that needs no connection at all (it only reads `schema.prisma`), so a fresh `npm install` never fails just because the environment isn't configured yet.
+
+**Critical for Preview isolation:** do not set a manual `DIRECT_URL` Vercel environment variable scoped to Preview (or ideally at all). The Neon integration already injects a fresh `DATABASE_URL_UNPOOLED` per Preview deployment, pointing at that deployment's own branch; a manually-set `DIRECT_URL` would silently override it and point every Preview's migrations at the wrong (e.g. Production) branch. Reserve `DIRECT_URL` for contexts the integration doesn't manage — local `.env`, CI secrets.
+
+`@prisma/adapter-pg` (the plain `pg` driver adapter) was kept rather than switching to `@prisma/adapter-neon`/`@neondatabase/serverless`/Prisma Accelerate — Neon's pooled endpoint speaks standard Postgres wire protocol over TCP, so the existing adapter works unchanged; the provider becoming "hosted" is not, by itself, a reason to change the client architecture.
 
 ```
-npm install
-npm run db:dev        # prisma dev (PGlite) on :51214, shadow on :51215
-npm run db:deploy     # apply migrations
+npm install                 # postinstall → prisma generate (no DB connection needed)
+cp .env.example .env        # DATABASE_URL + DIRECT_URL for your Neon Development branch
+npm run db:deploy           # prisma migrate deploy, against DIRECT_URL
 npm run dev
-npm test              # unit + integration (integration needs DATABASE_URL)
+npm test                    # unit always; DB integration whenever DATABASE_URL is set
 ```
 
-PGlite serves one connection at a time and maps every database name to the same store. That's why `.env` sets `DATABASE_POOL_MAX=1` and points `SHADOW_DATABASE_URL` at the separate shadow port. On real Postgres, leave the pool max unset. E2E builds into `.next-e2e` (`NEXT_DIST_DIR`), so a running `next dev` keeps its `.next`. E2E also sets `DATABASE_POOL_IDLE_MS=300`, and a global teardown waits until pooled connections have closed before the server is stopped (PGlite wedges if a client disappears mid-connection). If PGlite stops accepting connections ("Connection terminated unexpectedly"; usually after a second client connected while the app held the connection), run `npx prisma dev stop planner`, then `npm run db:dev`. Data persists.
+Running `prisma migrate dev` (to author new migrations) still works locally against a personal Neon branch; set `SHADOW_DATABASE_URL` to a second, disposable database/branch for its shadow-DB step. It is never used by `migrate deploy`, which is what every hosted environment runs.
 
-## Deployment (Vercel-compatible)
+### Test/CI safety
 
-- Set `DATABASE_URL`, preferably a pooled URL.
-- The build runs `prisma generate` (postinstall); deploys run `prisma migrate deploy`.
-- No filesystem state and no custom server.
+Nothing may run destructive setup/cleanup without `APP_ENV=test` — checked in `e2e/support/global-setup.ts` before seeding, and `VERCEL_ENV=production` is an absolute, unconditional refusal in both that file and `src/server/__tests__/helpers.ts`. `playwright.config.ts` sets `APP_ENV=test` by default for local convenience; CI sets it explicitly next to the test-branch secret, so the decision stays visible in the workflow file (`.github/workflows/ci.yml`) rather than being implicit.
+
+## Deployment (Vercel + Neon)
+
+```
+GitHub → push → Vercel → Next.js → Prisma 7 → Neon Postgres
+```
+
+- `vercel.json` sets the build command to `npm run vercel-build`, which runs `prisma migrate deploy` (against that deployment's own Neon branch, via `DIRECT_URL`/`DATABASE_URL_UNPOOLED`) and then `next build`. A failed migration fails the build — the app is never deployed against a schema it doesn't match, and nothing auto-repairs or resets Production.
+- Migrations follow the existing expand → backfill → contract policy (§85) for breaking changes; `migrate deploy` only ever applies forward, never resets or drops.
+- No filesystem state, no custom server — every module must work correctly across many concurrent, independently-warmed Vercel function instances (no assumption of one process, one long-lived connection, or shared in-memory state).
+- `GET /api/health` runs `SELECT 1` through Prisma and returns `{status: "ok"}` or a 503, revealing nothing about the connection itself — safe to leave reachable for uptime monitoring.
+- Production deploys never run a demo/seed script. Development/test fixtures are a separate, explicit path (`e2e/support/seed.ts`, gated as above).
 
 ## Decisions log
 
@@ -196,6 +223,8 @@ PGlite serves one connection at a time and maps every database name to the same 
 | D9 | next-intl without `[locale]` routing; locale from account → cookie → header | Clean authenticated URLs (I18N-2); a single server-side resolution keeps hydration consistent |
 | D10 | Services emit error codes; translated at the action boundary | Domain stays language-neutral (I18N-7) |
 | D12 | One `createTask` core with source metadata on the creation activity | §91 without a migration; future link table (Q-DM-6) is additive |
-| D13 | E2E fixtures seeded with plain SQL in Playwright global setup | Prisma's ESM client doesn't load in Playwright's TS runtime; global setup runs before the app opens its single PGlite connection |
+| D13 | E2E fixtures seeded with plain SQL in Playwright global setup | Prisma's ESM client doesn't load in Playwright's TS runtime; uses the raw `pg` client instead (D15: no longer about a single-connection database, Neon supports many) |
+| D15 | Kept `@prisma/adapter-pg` over `@prisma/adapter-neon`/Accelerate when moving to hosted Neon (2026-10) | Neon's pooled endpoint speaks plain Postgres over TCP; the provider becoming hosted isn't a reason to change the client architecture |
 | D11 | Explicit per-direction font stack built in the root layout | next/font's fallback faces (local Arial, U+0-10FFFF) otherwise capture the other script's glyphs, and Turbopack ignores `adjustFontFallback: false` |
 | D8 | Own primitives instead of shadcn/ui (spec §3 lists shadcn as low-level primitives) | Kept the bundle and dependencies minimal for Phase 1; revisit for menus/popovers/comboboxes (Q-PO-10) |
+| D14 | Email behind an `EmailProvider` interface; Resend adapter for prod/staging, console/fake adapter for dev/test, chosen by environment config | Q-PO-4: domain/workspace/auth services must never import Resend directly, so the provider can be swapped later without touching business logic; delivery failure must not corrupt invitation/membership/password-reset/account state |

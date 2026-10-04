@@ -35,6 +35,7 @@
     "slate": "Slate"
   },
   "people": {
-    "overflow": "{count, plural, one {# more person} other {# more people}}"
+    "overflow": "{count, plural, one {# more person} other {# more people}}",
+    "noMatches": "No matches"
   }
 }

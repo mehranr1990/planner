@@ -7,6 +7,13 @@ import type { Viewer } from "@/server/context";
 
 export const hasDatabase = Boolean(process.env.DATABASE_URL);
 
+// Absolute safety net: these suites create and delete real rows. Unlike E2E's domain-scoped
+// cleanup, a run id keeps this blast radius small by construction, but a Production connection
+// string must never reach this code path regardless.
+if (hasDatabase && process.env.VERCEL_ENV === "production") {
+  throw new Error("Refusing to run DB integration tests: VERCEL_ENV=production. Point DATABASE_URL at a dev/test Neon branch.");
+}
+
 export function fixtureRun(tz = "Asia/Tehran") {
   const run = randomUUID().slice(0, 8);
   const userIds: string[] = [];
@@ -43,7 +50,7 @@ export function fixtureRun(tz = "Asia/Tehran") {
   async function viewerFor(userId: string): Promise<Viewer> {
     const user = await db.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { id: true, email: true, name: true, avatarUrl: true, timezone: true, locale: true, theme: true, weekStartsOn: true, activeWorkspaceId: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, timezone: true, locale: true, theme: true, weekStartsOn: true, activeWorkspaceId: true, onboardedAt: true },
     });
     const memberships = await db.membership.findMany({
       where: { userId, status: "ACTIVE" },
@@ -53,7 +60,8 @@ export function fixtureRun(tz = "Asia/Tehran") {
       ...m.workspace,
       actor: { userId, workspaceId: m.workspace.id, role: m.role, customCapabilities: m.customRole?.capabilities ?? null, active: true },
     }));
-    return { user, workspaces, activeWorkspace: workspaces.find((w) => w.id === user.activeWorkspaceId) ?? null };
+    const { onboardedAt, ...rest } = user;
+    return { user: { ...rest, isOnboarded: onboardedAt !== null }, workspaces, activeWorkspace: workspaces.find((w) => w.id === user.activeWorkspaceId) ?? null };
   }
 
   async function cleanup() {

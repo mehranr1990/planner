@@ -1,0 +1,23 @@
+{
+  "password": {
+    "heading": "Password",
+    "current": "Current password",
+    "next": "New password",
+    "nextHint": "At least 10 characters",
+    "save": "Change password",
+    "changed": "Password changed. Your other sessions were signed out."
+  },
+  "sessions": {
+    "heading": "Active sessions",
+    "emptyTitle": "No active sessions",
+    "unknownDevice": "Unknown device",
+    "lastActive": "Last active {when}",
+    "current": "This device",
+    "revoke": "Revoke",
+    "revokeAllOthers": "Sign out all other sessions",
+    "revokeTitle": "Revoke this session?",
+    "revokeReason": "That device will be signed out immediately.",
+    "revokeAllTitle": "Sign out all other sessions?",
+    "revokeAllReason": "Every other device will be signed out immediately. This device stays signed in."
+  }
+}

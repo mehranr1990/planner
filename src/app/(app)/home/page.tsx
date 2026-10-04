@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ButtonLink, IconLink } from "@/components/ui/button";
 import { Chip } from "@/components/ui/data-viz";
@@ -40,6 +41,8 @@ function partOfDay(minutes: number): "morning" | "afternoon" | "evening" {
 
 export default async function HomePage() {
   const viewer = await getViewer();
+  // One-time nudge to the onboarding wizard; it never blocks any other route (§87, Q-PO-3).
+  if (!viewer.user.isOnboarded) redirect("/onboarding");
   const [t, tt, tc, f] = await Promise.all([getTranslations("home"), getTranslations("tasks"), getTranslations("common"), getFormat()]);
   const ws = viewer.activeWorkspace;
   // Home follows the active context: personal shows everything that is yours; a workspace narrows to it.

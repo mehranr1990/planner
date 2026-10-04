@@ -28,13 +28,13 @@ Legend:
 | IDN-05 | Safe `?next=` redirect | auth | `safeNext` | — | — | — | ✅ | E | 1 |
 | IDN-06 | Preferences: name, tz, week start, theme | /settings | `updatePreferencesAction` | own | St | §96 | ✅ | E | 1 |
 | IDN-07 | Browser tz captured at sign-up | /sign-up | validated IANA | — | — | — | ✅ | E | 1 |
-| IDN-08 | Locale preference UI | settings | column exists | own | St | §96 | 🗄 | — | 2b |
-| IDN-09 | Settings split (Profile/Account/Appearance/Notifications/Preferences/Security/Connected) | /settings/* | — | own | push list | §96 | ⬜ | — | 2b |
-| IDN-10 | Avatar upload | profile | FileObject (3) | own | S | §96 | ⬜ | — | 2b/3 |
-| IDN-11 | Sessions list + sign out others | security | Session rows | own | C | §96 | ⬜ | — | 2b |
-| IDN-12 | Password change / reset | security, /reset-password | email provider | own | St | §96 | ⬜ | — | 2b (Q-PO-4, Q-PO-12) |
+| IDN-08 | Locale preference UI | /settings/account | `LanguageForm` | own | St | §96 | ✅ | E | 2b |
+| IDN-09 | Settings split (Profile/Account/Appearance/Notifications/Preferences/Security/Connected) | /settings/* | per-section pages + `SettingsNav` | own | push list | §96 | ✅ | E | 2b |
+| IDN-10 | Avatar upload | profile | FileObject (3) | own | S | §96 | ⬜ | — | 3 (needs Q-PO-8) |
+| IDN-11 | Sessions list + sign out others | /settings/security | Session rows, `listSessions`/`revokeSession`/`revokeOtherSessions` | own | C | §96 | ✅ | E + I | 2b |
+| IDN-12 | Password change / reset | /settings/security, /forgot-password, /reset-password/[token] | `PasswordResetToken`, console/Resend `EmailProvider` | own | St | §96 | ✅ | E + I | 2b |
 | IDN-13 | Connected services | settings | IntegrationConnection | own | C | §96 | ⬜ | — | 12 |
-| IDN-14 | Onboarding | /onboarding | onboarded flag | own | F | §96 | ⬜ | — | 2b (Q-PO-3) |
+| IDN-14 | Onboarding | /onboarding | `User.onboardedAt`/`onboardingStep` | own | F | §96 | ✅ | E | 2b |
 
 ## 2. Workspaces & team (§5, §7)
 
@@ -45,20 +45,20 @@ Legend:
 | WS-03 | Switch context | top bar | membership re-verified | rel | ✅ | D1 top bar | ✅ | E | 1 |
 | WS-04 | Member directory | /team | `listMembers` | members.view | C | §96 | ✅ | E | 1 |
 | WS-05 | Change role (rank rules, last-owner guard, audit) | /team | `changeMemberRoleAction` | members.manage | C | §96 | ✅ | U | 1 |
-| WS-06 | Invite by email | invite dialog | Invitation + token + email | members.invite | S | §96 | 🗄 | — | 2b |
-| WS-07 | Invitation state (pending/accepted/revoked/expired) | /team/invitations | status + expiry job | members.invite | C | §96 | 🗄 | — | 2b |
-| WS-08 | Accept invite (incl. new account) | /invite/[token] | token hash, email match | token | St | §96 | ⬜ | — | 2b |
-| WS-09 | Remove member | member sheet | membership end + audit | members.manage | S | §96 | ⬜ | — | 2b |
-| WS-10 | Deactivate access | member sheet | status DEACTIVATED + session revoke | members.deactivate | S | §96 | 🗄 | — | 2b |
-| WS-11 | Teams CRUD + membership | /team/teams | Team, TeamMember | teams.manage | C | §96 | 🗄 | — | 2b |
-| WS-12 | Guests | /team/guests | GUEST role, object-only access | guests.invite | C | §96 | 🟡 rules only | U | 2b |
-| WS-13 | External collaborators | invite | GUEST + is_external | guests.invite | — | §96 | ⬜ | — | 2b |
-| WS-14 | Custom roles UI | /settings/workspace/roles | WorkspaceRole | roles.manage | S | §96 | 🟡 engine only | U | 2b |
-| WS-15 | Audit log view | /settings/workspace/audit | AuditEvent read | audit.view | C | §96 | 🟡 write only | — | 2b |
-| WS-16 | Workspace settings (name, icon, tz) | /settings/workspace | update + audit | workspace.manage | St | §96 | ⬜ | — | 2b |
+| WS-06 | Invite by email | /team/invitations, invite dialog | `Invitation` + hashed token + `EmailProvider` | members.invite | S | §96 | ✅ | E + I | 2b |
+| WS-07 | Invitation state (pending/accepted/revoked/expired) | /team/invitations | status, resend, revoke | members.invite | C | §96 | ✅ | E | 2b |
+| WS-08 | Accept invite (incl. new account) | /invite/[token] | token hash, email match | token | St | §96 | ✅ | I | 2b |
+| WS-09 | Remove member | `MemberActions` menu | membership delete + audit | members.manage | S | §96 | ✅ | I | 2b |
+| WS-10 | Deactivate access | `MemberActions` menu | status DEACTIVATED, `getViewer()` re-reads live | members.deactivate | S | §96 | ✅ | I | 2b |
+| WS-11 | Teams CRUD + membership | /team/teams | Team, TeamMember | teams.manage | C | §96 | ✅ | I | 2b |
+| WS-12 | Guests | /team/guests | GUEST role, directory hidden from guests (Q-PERM-4) | guests.invite | C | §96 | ✅ | — | 2b |
+| WS-13 | External collaborators | invite dialog (external checkbox) | GUEST + `is_external` | guests.invite | — | §96 | ✅ | I | 2b |
+| WS-14 | Custom roles UI | /settings/workspace/roles | WorkspaceRole CRUD, owner-only capability stripped | roles.manage | S | §96 | ✅ | I | 2b |
+| WS-15 | Audit log view | /settings/workspace/audit | AuditEvent read, cursor-paginated | audit.view | C | §96 | ✅ | — | 2b |
+| WS-16 | Workspace settings (name, icon, tz) | /settings/workspace/general | update + audit | workspace.manage | St | §96 | ✅ | I | 2b |
 | WS-17 | Workspace activity feed | /team | Activity | members.view | St | §96 | 🟡 write only | — | 6 |
 | WS-18 | Team directory | /directory | — | members.view | C | §96 | ⬜ | — | 14 |
-| WS-19 | Transfer ownership | settings | tx + audit | OWNER | S | §96 | ⬜ | — | 2b |
+| WS-19 | Transfer ownership | settings | tx + audit | OWNER | S | §96 | ⬜ | — | 3 (deferred at the 2b gate — no acceptance-criteria detail existed; see `docs/phases/PHASE_2b.md` §100 item 9) |
 
 ## 3. Permissions (§7, §83)
 
@@ -70,7 +70,7 @@ Legend:
 | PRM-04 | Project object rules | projects/access.ts | ✅ | I | 1 |
 | PRM-05 | Identical not-found / no-access | NOT_FOUND + notFound() | ✅ | I | 1 |
 | PRM-06 | Client ids verified against memberships | context/actions | ✅ | I | 1 |
-| PRM-07 | Per-module capability additions | PERMISSIONS §2 | ⬜ | — | per phase |
+| PRM-07 | Per-module capability additions | PERMISSIONS §2 | 🟡 `members.deactivate`/`guests.invite` done (2b); rest per phase | U | per phase |
 | PRM-08 | Service principal for automations/agents | — | ⬜ | — | 12/13 |
 
 ## 4. Planner (§10)
@@ -396,7 +396,7 @@ Legend:
 | CLL-03 | Screen sharing | | | | desktop | | ⬜ | — | 7 |
 | ATT-01 | Attention list (action-required) separate from activity | /attention | derived (Q-DM-3) | own | swipe done | §96 | ⬜ | — | 6 (Q-PO-6) |
 | ATT-02 | Sources: mentions, replies, assignments, comments, approvals, meetings, deadlines, overdue, invitations, workflow events | | notification + derived | own | | | ⬜ | — | 6 |
-| NOT-01 | Notification generation service (dedupe) | — | Notification.dedupe_key | — | — | — | 🗄 | — | 2b |
+| NOT-01 | Notification generation service (dedupe) | — | `notify()`, `Notification.dedupe_key`, wired from invites + role changes | — | — | — | ✅ | I | 2b |
 | NOT-02 | Read / unread, type, source, entity ref, actor, deep link | bell popover | | own | F | | 🗄 | — | 6 |
 | NOT-03 | Inline action buttons | item | | own | | | ⬜ | — | 6 |
 | NOT-04 | Preferences per category × channel | settings | NotificationPreference | own | | | 🗄 | — | 6 |

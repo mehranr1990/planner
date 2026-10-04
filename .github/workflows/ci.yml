@@ -1,0 +1,74 @@
+name: CI
+
+# Runs against a dedicated Neon TEST branch only — never Production, never a Preview branch
+# belonging to another deployment. See docs/ARCHITECTURE.md → "Database (Neon)" and
+# docs/QA.md → "CI" for how NEON_TEST_DATABASE_URL / NEON_TEST_DIRECT_URL are provisioned.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   NEON_TEST_DATABASE_URL  — pooled connection string for the dedicated test branch
+#   NEON_TEST_DIRECT_URL    — unpooled connection string for the same branch (migrations)
+# Both must point at the SAME disposable test branch. Do not reuse Production or Preview
+# credentials here under any circumstances.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push to the same PR cancels the still-running check for the first.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Marks this run as targeting a disposable test database — checked by e2e/support/global-setup.ts
+  # and src/server/__tests__/helpers.ts before any destructive operation. Fails closed without it.
+  APP_ENV: test
+  EMAIL_PROVIDER: console
+  DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
+  DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
+
+jobs:
+  checks:
+    name: typecheck · lint · unit/integration · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Apply migrations to the Neon test branch
+        run: npm run db:migrate:deploy
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: Playwright (functional flows)
+    runs-on: ubuntu-latest
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Apply migrations to the Neon test branch
+        run: npm run db:migrate:deploy
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      # Visual regression is intentionally NOT run here yet: baselines are committed only for
+      # win32-msedge (see e2e/__screenshots__/), and this job runs on ubuntu-latest/chromium —
+      # there is no linux-chromium baseline to compare against. Generating one requires a real
+      # run on this exact runner image (`npm run test:visual:update`, reviewed, then committed)
+      # before `npm run test:visual` can be enabled here. See docs/QA.md → "Visual regression in CI".
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

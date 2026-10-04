@@ -45,6 +45,38 @@ export async function revokeAllSessions(userId: string): Promise<void> {
   await db.session.deleteMany({ where: { userId } });
 }
 
+/** Revokes every session of a user except one (e.g. the session making the change). */
+export async function revokeOtherSessions(userId: string, exceptSessionId: string): Promise<void> {
+  await db.session.deleteMany({ where: { userId, id: { not: exceptSessionId } } });
+}
+
+export async function revokeSession(userId: string, sessionId: string): Promise<void> {
+  await db.session.deleteMany({ where: { userId, id: sessionId } });
+}
+
+export interface SessionSummary {
+  id: string;
+  userAgent: string | null;
+  lastSeenAt: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export async function listSessions(userId: string): Promise<SessionSummary[]> {
+  const sessions = await db.session.findMany({
+    where: { userId },
+    orderBy: { lastSeenAt: "desc" },
+    select: { id: true, userAgent: true, lastSeenAt: true, createdAt: true, expiresAt: true },
+  });
+  return sessions.map((s) => ({
+    id: s.id,
+    userAgent: s.userAgent,
+    lastSeenAt: s.lastSeenAt.toISOString(),
+    createdAt: s.createdAt.toISOString(),
+    expiresAt: s.expiresAt.toISOString(),
+  }));
+}
+
 export const getSessionUser = cache(async () => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -66,6 +98,7 @@ export const getSessionUser = cache(async () => {
           weekStartsOn: true,
           activeWorkspaceId: true,
           deactivatedAt: true,
+          onboardedAt: true,
         },
       },
     },
@@ -79,11 +112,19 @@ export const getSessionUser = cache(async () => {
       .update({ where: { id: session.id }, data: { lastSeenAt: new Date(now), expiresAt: new Date(now + SESSION_MS) } })
       .catch(() => undefined);
   }
-  const { id, email, name, avatarUrl, timezone, locale, theme, weekStartsOn, activeWorkspaceId } = session.user;
-  return { id, email, name, avatarUrl, timezone, locale, theme, weekStartsOn, activeWorkspaceId };
+  const { id, email, name, avatarUrl, timezone, locale, theme, weekStartsOn, activeWorkspaceId, onboardedAt } = session.user;
+  return { id, email, name, avatarUrl, timezone, locale, theme, weekStartsOn, activeWorkspaceId, isOnboarded: onboardedAt !== null };
 });
 
 export type SessionUser = NonNullable<Awaited<ReturnType<typeof getSessionUser>>>;
+
+/** The current request's session id, for "which row is this" (sessions list, revoke-one guard). */
+export const getCurrentSessionId = cache(async (): Promise<string | null> => {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = await db.session.findUnique({ where: { tokenHash: hashToken(token) }, select: { id: true } });
+  return session?.id ?? null;
+});
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();

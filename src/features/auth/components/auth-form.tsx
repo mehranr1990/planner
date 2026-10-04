@@ -10,9 +10,9 @@ import { signInAction, signUpAction, type AuthFormState } from "../server/action
 const noopSubscribe = () => () => {};
 const browserTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: string | null }) {
+export function AuthForm({ mode, next, initialEmail }: { mode: "sign-in" | "sign-up"; next: string | null; initialEmail?: string }) {
   const t = useTranslations("auth");
-  const [state, action, pending] = useActionState<AuthFormState, FormData>(mode === "sign-in" ? signInAction : signUpAction, {});
+  const [state, action, pending] = useActionState<AuthFormState, FormData>(mode === "sign-in" ? signInAction : signUpAction, { email: initialEmail });
   // The browser's timezone seeds the account preference; the server validates it.
   // Rendered as a value (not set imperatively) so React's post-action form reset can't clear it.
   const timezone = useSyncExternalStore(noopSubscribe, browserTimezone, () => "UTC");
@@ -44,6 +44,11 @@ export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next: st
           aria-describedby={fe.password ? "password-error" : undefined}
         />
       </Field>
+      {mode === "sign-in" && (
+        <Link href="/forgot-password" className="self-end text-[12.5px] text-foreground-muted underline-offset-4 hover:underline">
+          {t("signIn.forgotPassword")}
+        </Link>
+      )}
       {state.error && (
         <p role="alert" className="rounded-[14px] bg-accent-red-soft/40 px-4 py-3 text-[13px]">
           {state.error}

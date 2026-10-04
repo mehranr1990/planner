@@ -28,7 +28,7 @@ async function makeUser(label: string) {
 async function viewerFor(userId: string): Promise<Viewer> {
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, email: true, name: true, avatarUrl: true, timezone: true, locale: true, theme: true, weekStartsOn: true, activeWorkspaceId: true },
+    select: { id: true, email: true, name: true, avatarUrl: true, timezone: true, locale: true, theme: true, weekStartsOn: true, activeWorkspaceId: true, onboardedAt: true },
   });
   const memberships = await db.membership.findMany({
     where: { userId, status: "ACTIVE" },
@@ -38,7 +38,8 @@ async function viewerFor(userId: string): Promise<Viewer> {
     ...m.workspace,
     actor: { userId, workspaceId: m.workspace.id, role: m.role, customCapabilities: m.customRole?.capabilities ?? null, active: true },
   }));
-  return { user, workspaces, activeWorkspace: workspaces.find((w) => w.id === user.activeWorkspaceId) ?? null };
+  const { onboardedAt, ...rest } = user;
+  return { user: { ...rest, isOnboarded: onboardedAt !== null }, workspaces, activeWorkspace: workspaces.find((w) => w.id === user.activeWorkspaceId) ?? null };
 }
 
 const quick = (viewer: Viewer, input: string, context = "personal", extra: Partial<{ projectId: string; view: string }> = {}) =>

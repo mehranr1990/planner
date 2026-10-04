@@ -39,15 +39,16 @@ export async function seed(databaseUrl: string): Promise<void> {
 
     for (const m of TEAMMATES) {
       await db.query(
-        `INSERT INTO users (id, email, name, avatar_url, password_hash, timezone, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now())`,
+        `INSERT INTO users (id, email, name, avatar_url, password_hash, timezone, onboarded_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, now(), now(), now())`,
         [m.id, `${m.id}@${SEEDED_DOMAIN}`, m.name, m.avatarUrl, hash, tz],
       );
     }
 
     let order = 0;
     for (const s of Object.values(SHOWCASES)) {
+      // Seeded fixtures are established accounts, not fresh sign-ups — onboarding is already done.
       await db.query(
-        `INSERT INTO users (id, email, name, password_hash, timezone, locale, theme, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())`,
+        `INSERT INTO users (id, email, name, password_hash, timezone, locale, theme, onboarded_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now(), now())`,
         [s.userId, s.email, s.name, hash, tz, s.locale, s.theme],
       );
       await db.query(`INSERT INTO workspaces (id, name, slug, timezone, created_by_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, now(), now())`, [

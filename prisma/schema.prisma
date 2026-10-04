@@ -129,11 +129,14 @@ model User {
   weekStartsOn      Int             @default(1) @map("week_starts_on") // 0 = Sunday … 6 = Saturday
   activeWorkspaceId String?         @map("active_workspace_id")
   deactivatedAt     DateTime?       @map("deactivated_at") @db.Timestamptz(3)
+  onboardedAt       DateTime?       @map("onboarded_at") @db.Timestamptz(3)
+  onboardingStep    Int?            @map("onboarding_step")
   createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   activeWorkspace         Workspace?               @relation("ActiveWorkspace", fields: [activeWorkspaceId], references: [id], onDelete: SetNull)
   sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
   memberships             Membership[]
   createdWorkspaces       Workspace[]              @relation("WorkspaceCreator")
   teamMemberships         TeamMember[]
@@ -177,6 +180,20 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model NotificationPreference {
@@ -248,12 +265,14 @@ model Membership {
   role          SystemRole       @default(MEMBER)
   customRoleId  String?          @map("custom_role_id")
   status        MembershipStatus @default(ACTIVE)
+  isExternal    Boolean          @default(false) @map("is_external")
   joinedAt      DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
   deactivatedAt DateTime?        @map("deactivated_at") @db.Timestamptz(3)
 
   workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
   customRole WorkspaceRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  acceptedViaInvitation Invitation?
 
   @@unique([workspaceId, userId])
   @@index([userId, status])
@@ -292,17 +311,20 @@ model Invitation {
   workspaceId  String           @map("workspace_id")
   email        String
   role         SystemRole       @default(MEMBER)
+  isExternal   Boolean          @default(false) @map("is_external")
   tokenHash    String           @unique @map("token_hash")
   status       InvitationStatus @default(PENDING)
   invitedById  String           @map("invited_by_id")
   acceptedById String?          @map("accepted_by_id")
+  acceptedMembershipId String?  @unique @map("accepted_membership_id")
   expiresAt    DateTime         @map("expires_at") @db.Timestamptz(3)
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   respondedAt  DateTime?        @map("responded_at") @db.Timestamptz(3)
 
-  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedBy  User      @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
-  acceptedBy User?     @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy  User        @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy User?       @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+  acceptedMembership Membership? @relation(fields: [acceptedMembershipId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, status])
   @@index([email, status])

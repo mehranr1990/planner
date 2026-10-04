@@ -11,9 +11,16 @@ const BASE_URL = `http://localhost:${PORT}`;
 const channel = process.env.PW_CHANNEL || undefined;
 const browserLabel = channel ?? "chromium";
 
+// Marks this run as targeting a disposable test database (checked by global-setup.ts before any
+// destructive seeding). Local convenience default only — CI sets it explicitly next to the
+// test-only DATABASE_URL secret, so that decision stays visible in the workflow file.
+process.env.APP_ENV ??= "test";
+
 export default defineConfig({
   testDir: "e2e",
-  // One worker: the local dev database (PGlite) serves a single connection, and flows share it.
+  // Flows share one seeded fixture set (by design, for deterministic data) rather than isolating
+  // per-worker state, so this stays serialized for now — not a database-backend limitation.
+  // Revisit together with per-run fixture isolation if E2E runtime becomes a bottleneck.
   workers: 1,
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
@@ -21,7 +28,6 @@ export default defineConfig({
   timeout: 90_000,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   globalSetup: "./e2e/support/global-setup.ts",
-  globalTeardown: "./e2e/support/global-teardown.ts",
   snapshotPathTemplate: `{testDir}/__screenshots__/{platform}-${browserLabel}/{projectName}/{arg}{ext}`,
   expect: {
     timeout: 15_000,
@@ -51,7 +57,8 @@ export default defineConfig({
     command: process.env.E2E_DEV ? `npx next dev -p ${PORT}` : `npm run build && npx next start -p ${PORT}`,
     url: `${BASE_URL}/sign-in`,
     // Separate build output: a developer's own `next dev` keeps using .next undisturbed.
-    env: { NEXT_DIST_DIR: ".next-e2e", DATABASE_POOL_IDLE_MS: "300" },
+    // Console email provider always, even against a production build — E2E never sends real mail.
+    env: { NEXT_DIST_DIR: ".next-e2e", EMAIL_PROVIDER: "console" },
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
   },

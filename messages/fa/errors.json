@@ -36,5 +36,21 @@
   "workspaceNameTooShort": "دست‌کم ۲ نویسه به کار ببرید",
   "workspaceCreateFailed": "فضای کاری ساخته نشد. لطفاً دوباره تلاش کنید.",
   "roleChangeForbidden": "اجازهٔ انجام این تغییر را ندارید.",
-  "lastOwner": "هر فضای کاری دست‌کم به یک مالک نیاز دارد."
+  "lastOwner": "هر فضای کاری دست‌کم به یک مالک نیاز دارد.",
+  "invitationForbidden": "اجازهٔ دعوت افراد با این نقش را ندارید.",
+  "invitationAlreadyPending": "برای این ایمیل، دعوتی در انتظار از پیش وجود دارد.",
+  "invitationInvalid": "این پیوند دعوت معتبر نیست.",
+  "invitationRevoked": "این دعوت لغو شده است.",
+  "invitationExpired": "این دعوت منقضی شده است. دعوتی تازه درخواست کنید.",
+  "invitationEmailMismatch": "این دعوت برای نشانی ایمیل دیگری فرستاده شده است.",
+  "invitationAlreadyMember": "شما از پیش عضو این فضای کاری هستید.",
+  "teamForbidden": "اجازهٔ مدیریت تیم‌ها را ندارید.",
+  "teamNameTaken": "تیمی با این نام از پیش وجود دارد.",
+  "teamNameTooShort": "دست‌کم ۲ نویسه به کار ببرید",
+  "roleManageForbidden": "اجازهٔ مدیریت نقش‌ها را ندارید.",
+  "roleNameTaken": "نقشی با این نام از پیش وجود دارد.",
+  "roleNameTooShort": "دست‌کم ۲ نویسه به کار ببرید",
+  "currentPasswordIncorrect": "گذرواژهٔ فعلی‌تان نادرست است",
+  "cannotRevokeCurrentSession": "نمی‌توانید نشستی را که هم‌اکنون در آن هستید لغو کنید. در عوض خارج شوید.",
+  "resetTokenInvalid": "این پیوند بازنشانی نامعتبر است یا منقضی شده."
 }

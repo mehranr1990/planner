@@ -35,6 +35,7 @@
     "slate": "خاکستری"
   },
   "people": {
-    "overflow": "{count, plural, other {# نفر دیگر}}"
+    "overflow": "{count, plural, other {# نفر دیگر}}",
+    "noMatches": "نتیجه‌ای یافت نشد"
   }
 }

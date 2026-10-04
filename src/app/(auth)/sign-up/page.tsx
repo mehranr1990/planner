@@ -8,13 +8,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SignUpPage({ searchParams }: PageProps<"/sign-up">) {
-  const { next } = await searchParams;
+  const { next, email } = await searchParams;
   const t = await getTranslations("auth.signUp");
   return (
     <>
       <h1 className="mb-1 text-[26px] leading-9 font-medium tracking-[-0.02em]">{t("title")}</h1>
       <p className="mb-6 text-[13px] text-foreground-muted">{t("subtitle")}</p>
-      <AuthForm mode="sign-up" next={typeof next === "string" ? next : null} />
+      <AuthForm mode="sign-up" next={typeof next === "string" ? next : null} initialEmail={typeof email === "string" ? email : undefined} />
     </>
   );
 }

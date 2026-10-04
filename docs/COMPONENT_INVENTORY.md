@@ -56,7 +56,9 @@ Required by §95 (reuse before duplicating) and §90 (know every usage before ch
 | `Dot`, `toneOf` | data-viz.tsx | | task-row (+ project pages via `toneOf`) |
 | `Input`, `Textarea`, `Select`, `Field` | field.tsx | white pill fields, Select with inline-end chevron, label at start (DESIGN_SYSTEM §14) | settings-forms, auth-form, create-project, task-sheet |
 | `Sheet` | sheet.tsx | `<dialog>` side/bottom sheet | task-sheet |
-| `Dialog`, `DialogFooter` | dialog.tsx | centred `<dialog>` modal on a soft grey surface: title + round close + divider; footer = two equal pills (cancel / primary) | create-project |
+| `Dialog`, `DialogFooter` | dialog.tsx | centred `<dialog>` modal on a soft grey surface: title + round close + divider; footer = two equal pills (cancel / primary) | create-project, invite-dialog, create-team-dialog, role-editor-dialog |
+| `ConfirmDialog` | confirm-dialog.tsx | destructive confirmation: title + reason + single danger action | member-actions (remove/deactivate/reactivate), sessions-list (revoke), invitations (revoke uses inline buttons, not this), archive-team-button, roles-manager (delete) |
+| `PeoplePicker` | people-picker.tsx | permission-filtered member search; selection rendered via `PeopleCluster` | team-member-manager |
 
 ## 3. Shell and feature components (with usages)
 
@@ -110,8 +112,6 @@ Component rules:
 
 | Component | Responsibility | Phase | Reused by |
 |---|---|---|---|
-| `ConfirmDialog` | destructive confirmation with typed reason | 2b | remove member, delete, archive |
-| `PeoplePicker` | search members, permission-filtered; renders the selection as a `PeopleCluster` | 2b/3 | assignees, invites, meetings, approvals |
 | `PillTabs`, `SegmentedControl`, `FilterBar`, `SavedViewPills` | navigation, choice, filtering | 3 | planner, boards, requests, reports |
 | `Menu`, `Popover`, `ContextMenu` | accessible menus | 3 | everywhere |
 | `DatePicker`, `DateTimeRangePicker`, `RecurrenceEditor` | tz-aware pickers | 3/4 | tasks, events, habits, subscriptions |

@@ -1,9 +1,35 @@
 {
   "metaTitle": "Settings",
   "title": "Settings",
-  "prefs": {
-    "heading": "Profile & preferences",
+  "nav": {
+    "label": "Settings sections",
+    "profile": "Profile",
+    "account": "Account",
+    "appearance": "Appearance",
+    "notifications": "Notifications",
+    "preferences": "Preferences",
+    "security": "Security",
+    "connections": "Connections"
+  },
+  "profile": {
+    "heading": "Profile",
     "name": "Name",
+    "save": "Save",
+    "saved": "Profile saved"
+  },
+  "appearance": {
+    "heading": "Appearance",
+    "theme": "Theme",
+    "themes": {
+      "SYSTEM": "Match system",
+      "LIGHT": "Light",
+      "DARK": "Dark"
+    },
+    "save": "Save",
+    "saved": "Appearance saved"
+  },
+  "prefs": {
+    "heading": "Preferences",
     "timezone": "Timezone",
     "timezoneHint": "Used for Today, due times and recurring tasks",
     "weekStart": "Week starts on",
@@ -12,16 +38,16 @@
       "0": "Sunday",
       "6": "Saturday"
     },
-    "appearance": "Appearance",
-    "themes": {
-      "SYSTEM": "Match system",
-      "LIGHT": "Light",
-      "DARK": "Dark"
-    },
-    "language": "Language",
-    "languageHint": "Changes the interface language. Your own content stays as you wrote it.",
     "save": "Save preferences",
     "saved": "Preferences saved"
+  },
+  "account": {
+    "heading": "Account",
+    "signedInAs": "Signed in as <value>{email}</value>.",
+    "language": "Language",
+    "languageHint": "Changes the interface language. Your own content stays as you wrote it.",
+    "languageSaved": "Language saved",
+    "save": "Save"
   },
   "workspaces": {
     "heading": "Workspaces",
@@ -31,8 +57,12 @@
     "create": "Create workspace",
     "created": "Workspace created — you’re now working in it"
   },
-  "account": {
-    "heading": "Account",
-    "signedInAs": "Signed in as <value>{email}</value>. Security, notifications and connected services arrive in later phases."
+  "notifications": {
+    "comingSoonTitle": "Notification preferences are coming soon",
+    "comingSoonHint": "In-app notifications already work across the product; channel and preference controls arrive in a later phase."
+  },
+  "connections": {
+    "comingSoonTitle": "Connected services are coming soon",
+    "comingSoonHint": "Linking external accounts and integrations arrives in a later phase."
   }
 }

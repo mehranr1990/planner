@@ -4,7 +4,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
 import { PeopleCluster } from "@/components/ui/people-cluster";
 import { EmptyState, PageTitle, Panel, SectionHeader } from "@/components/ui/surface";
+import { MemberActions } from "@/features/workspace/components/member-actions";
 import { MemberRoleSelect } from "@/features/workspace/components/member-role-select";
+import { NoActiveWorkspace } from "@/features/workspace/components/no-active-workspace";
+import { TeamNav } from "@/features/workspace/components/team-nav";
 import { listMembers } from "@/features/workspace/server/queries";
 import { getViewer } from "@/server/context";
 
@@ -13,45 +16,46 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-export default async function TeamPage() {
+export default async function TeamPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const viewer = await getViewer();
+  const { status: statusParam } = await searchParams;
+  const status = statusParam === "deactivated" ? "DEACTIVATED" : "ACTIVE";
   const [t, tc] = await Promise.all([getTranslations("workspace"), getTranslations("common")]);
   const ws = viewer.activeWorkspace;
 
   if (!ws) {
-    const hasWorkspaces = viewer.workspaces.length > 0;
     return (
       <>
         <PageTitle>{t("title")}</PageTitle>
-        <Panel>
-          <EmptyState
-            title={hasWorkspaces ? t("personalTitle") : t("noneTitle")}
-            hint={hasWorkspaces ? t("personalHint") : t("noneHint")}
-            action={
-              <ButtonLink href="/settings#workspaces" variant="primary">
-                {hasWorkspaces ? t("personalAction") : t("noneAction")}
-              </ButtonLink>
-            }
-          />
-        </Panel>
+        <NoActiveWorkspace viewer={viewer} />
       </>
     );
   }
 
-  const members = await listMembers(viewer, ws.id);
+  const members = await listMembers(viewer, ws.id, status);
   return (
     <>
       <PageTitle>
         <span dir="auto">{ws.name}</span>
       </PageTitle>
+      <TeamNav />
       <Panel aria-labelledby="members-heading">
         <SectionHeader
           title={<span id="members-heading">{t("members")}</span>}
           count={members?.length}
-          actions={members && <PeopleCluster people={members.map((m) => m.user)} max={5} size="sm" label={t("membersPreview")} />}
+          actions={
+            <>
+              {members && <PeopleCluster people={members.map((m) => m.user)} max={5} size="sm" label={t("membersPreview")} />}
+              <ButtonLink href={status === "ACTIVE" ? "/team?status=deactivated" : "/team"} variant="ghost" size="sm">
+                {status === "ACTIVE" ? t("showDeactivated") : t("showActive")}
+              </ButtonLink>
+            </>
+          }
         />
         {members === null ? (
           <EmptyState title={t("directoryUnavailableTitle")} hint={t("directoryUnavailableHint")} />
+        ) : members.length === 0 ? (
+          <EmptyState title={status === "ACTIVE" ? t("noneTitle") : t("noDeactivatedTitle")} />
         ) : (
           <ul className="flex flex-col">
             {members.map((m, i) => (
@@ -67,12 +71,12 @@ export default async function TeamPage() {
                     {m.user.timezone.replaceAll("_", " ")}
                   </p>
                 </div>
-                <MemberRoleSelect workspaceId={ws.id} userId={m.user.id} role={m.role} options={m.assignableRoles} name={m.user.name} />
+                {m.status === "ACTIVE" && <MemberRoleSelect workspaceId={ws.id} userId={m.user.id} role={m.role} options={m.assignableRoles} name={m.user.name} />}
+                <MemberActions workspaceId={ws.id} userId={m.user.id} name={m.user.name} status={m.status} canRemove={m.canRemove} canDeactivate={m.canDeactivate} />
               </li>
             ))}
           </ul>
         )}
-        <p className="mt-6 px-3 text-[12.5px] text-foreground-subtle">{t("invitesNote")}</p>
       </Panel>
     </>
   );

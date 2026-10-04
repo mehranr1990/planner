@@ -57,8 +57,19 @@ export async function signUp(page: Page, opts: { name?: string; email?: string }
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL(/\/(home|planner)/);
+  // A brand-new account is never onboarded, so this always lands on /onboarding first — waiting
+  // on a pattern that also matches "/home" races the wizard's own follow-up redirect there.
+  await page.waitForURL(/\/onboarding$/);
+  await completeOnboarding(page);
   return email;
+}
+
+/** Clicks through the onboarding wizard's personal path (used by fixtures that just need /home). */
+export async function completeOnboarding(page: Page) {
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Personal" }).click();
+  await page.getByRole("button", { name: "Skip for now" }).click();
+  await page.waitForURL(/\/home$/);
 }
 
 /** Signs into a seeded showcase account (labels follow the account's language after sign-in only). */

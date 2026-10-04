@@ -11,7 +11,7 @@ The granular 0–15 implementation plan is kept (§92). Section 2 maps the maste
 | 2 | Planner & task engine core: 8 views, quick add, sheet, recurrence, checklist, soft delete/undo, version conflicts, dependency service | **Done** (items deferred to Phase 3 are listed there) |
 | 2i | **Internationalization foundation** (cross-cutting): next-intl, en + fa (RTL), resolution and persistence, catalogs for every built screen, error codes, Intl formatting, Persian typography, RTL audit | **Done** (2026-10-01) |
 | 2a | **Quality-gate catch-up** (no new product features): shared `createTask` core (§91); all action logic → services (projects, workspace, account, auth) + shared `runAction`; in-repo Playwright E2E (16 flows) + visual baseline (22 shots); `IconLink`/`IconButton`/`Dialog` consolidation | **Done** (2026-10-01) |
-| 2b | **Next, awaiting approval.** Workspaces completion: invitations (token, expiry, accept, email), remove/deactivate, teams, guests/external, custom-roles UI, audit view, settings split (§6), **notification service core** (generation + `dedupe_key`; in-app only), onboarding (pending content) | Blocked on Q-PO-3, Q-PO-4 |
+| 2b | **Done** (2026-10-04). Workspaces completion: invitations (token, expiry, accept, email), remove/deactivate, teams, guests/external, custom-roles UI, audit view, settings split (§6), **notification service core** (generation + `dedupe_key`; in-app only), onboarding (4-step flow, see `docs/phases/PHASE_2b.md`), security settings (password change/reset, sessions), email-provider abstraction (Resend). Deferred with a reason: transfer ownership (→3), avatar upload (→3, Q-PO-8) | — |
 | 3 | Task engine completion + projects + collaboration primitives: assignees/participants/watchers UI, subtasks, labels/tags, start date/time, estimates, reminders (needs jobs, so UI here with the delivery job in 4), related tasks, dependency UI, duplicate/move/archive, comments + mentions → notifications, attachments + FileObject (storage decision), planner DnD/bulk/saved views/group/sort/filter; project tabs Overview/Tasks/Board/Timeline/Activity, sections, milestones, members, settings, tags | |
 | 4 | Calendar (D/W/M/Agenda), events, time blocks, timers (one active), focus, time entries, **background job runner** (reminders, due-soon/overdue notifications), project Calendar tab | |
 | 5 | Habits (6 types), routines, journal, check-ins, goals/OKR, daily/weekly plan & review | |
@@ -93,8 +93,8 @@ Each phase produces a short `docs/phases/PHASE_<n>.md`. Its sections follow the 
 |---|---|---|
 | Q-PO-1 | Product name and brand (currently "planner" with an original mark) | polish |
 | Q-PO-2 | Lufga licence (one-line swap) | polish |
-| Q-PO-3 | Onboarding content and steps (§87 flow 1 names onboarding but the spec doesn't define it) | 2b |
-| Q-PO-4 | Email provider (invites, reset, notifications) | 2b |
+| ~~Q-PO-3~~ | Onboarding content and steps — **resolved 2026-10-03**: 4-step flow (setup info → usage context → workspace setup, skipped if arriving via invitation → first action, skippable), never permanently limits functionality. Full flow in `docs/phases/PHASE_2b.md` | — |
+| ~~Q-PO-4~~ | Email provider — **resolved 2026-10-03**: Resend for prod/staging, console/fake adapter for dev/test, behind an `EmailProvider` abstraction (domain code never imports Resend directly; see ARCHITECTURE.md D14) | — |
 | Q-PO-5 | Real-time transport (chat, presence, typing, live updates) | 7 |
 | Q-PO-6 | Naming: "Attention"/"Activity" vs Planner "Inbox" (§10 vs §46 both say Inbox) | 6 |
 | Q-PO-7 | Separate table-style `/tasks` area (§78) in addition to Planner "All tasks"? | 3 |
@@ -102,7 +102,7 @@ Each phase produces a short `docs/phases/PHASE_<n>.md`. Its sections follow the 
 | Q-PO-9 | Rich-text editor library and sanitiser (descriptions, comments, docs, journal) | 3 |
 | Q-PO-10 | Adopt shadcn/Radix for complex primitives (spec §3) or keep hand-built? | 3 |
 | Q-PO-11 | Install ffmpeg for the §1 frame-extraction step, or accept the provided frames | 0 |
-| Q-PO-12 | Security section scope: password change/reset, sessions list, 2FA? | 2b |
+| ~~Q-PO-12~~ | Security section scope — **resolved 2026-10-03**: change password, forgot/reset password, active-sessions list (view/revoke-one/revoke-all-others) are in scope for 2b. 2FA/TOTP, passkeys/WebAuthn, recovery codes, trusted devices, login history, IP intelligence and suspicious-login detection are explicitly **not** in 2b and are not yet defined by the product spec (do not invent, §98). Email-address change stays a future decision | — |
 | Q-PO-13 | Background-job runtime on Vercel (Cron + DB queue, or an external queue) | 4 |
 | Q-PO-14 | Calls/video provider | 7 |
 | Q-PO-15 | Search engine: Postgres FTS (proposed) vs external | 6 |

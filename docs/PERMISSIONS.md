@@ -72,7 +72,7 @@ O = Owner, A = Admin, Mg = Manager, M = Member, G = Guest.
 
 | Capability | O | A | Mg | M | G | Phase |
 |---|:-:|:-:|:-:|:-:|:-:|---|
-| members.deactivate, guests.invite | ✓ | ✓ | | | | 2b |
+| ~~members.deactivate, guests.invite~~ | ✓ | ✓ | | | | **done (2b)** — confirmed at the gate, no change from the proposal |
 | calendar.view_team | ✓ | ✓ | ✓ | | | 4 |
 | time.view_team, time.edit_any | ✓ | ✓ | ✓ | | | 4 |
 | goals.create (workspace/team goals) | ✓ | ✓ | ✓ | ✓ | | 5 |
@@ -213,6 +213,6 @@ O = Owner, A = Admin, Mg = Manager, M = Member, G = Guest.
 | Q-PERM-1 | Can assignees of a *personal* task edit it, or only complete it and comment? (Currently: edit.) |
 | Q-PERM-2 | Default project visibility in a workspace. (Currently the create form defaults to WORKSPACE.) |
 | Q-PERM-3 | Should Managers see company finance by default? (Proposed: no.) |
-| Q-PERM-4 | Can guests see the member directory? (Currently: no.) |
+| ~~Q-PERM-4~~ | Can guests see the member directory? **Confirmed at the 2b gate: no** — `members.view` is empty for GUEST by default, so `/team` and `/team/guests` are unreachable for a guest actor. |
 | Q-PERM-5 | Team calendar: free/busy only, or titles too? |
 | Q-PERM-6 | Automations when the author leaves or is demoted: disable, or transfer to a service principal? |

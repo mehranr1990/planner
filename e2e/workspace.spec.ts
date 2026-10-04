@@ -4,7 +4,7 @@ test.describe("workspaces, projects and preferences", () => {
   test("create a workspace and project, add project tasks, switch context", async ({ page }) => {
     await signUp(page);
 
-    await page.goto("/settings");
+    await page.goto("/settings/account");
     await page.getByLabel("Workspace name").fill("Northwind Studio");
     await page.getByRole("button", { name: "Create workspace" }).click();
     await expect(page.getByText("Workspace created")).toBeVisible();

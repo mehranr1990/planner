@@ -11,8 +11,8 @@ Implements §86 (risk-based testing), §87 (E2E flows), §88 (visual regression)
 | `npm test` | Vitest: unit + DB integration (integration skips without `DATABASE_URL`) |
 | `npm run build` | production build |
 
-Last run (2026-10-01, Phase 2a): typecheck ✅ · lint ✅ · Vitest **149/149** ✅ · build ✅ · Playwright **38/38** ✅ (16 flows + 22 visual).
-- Unit and catalog tests, plus 35 DB integration tests: task flows; the creation core; project, workspace, checklist and auth services; Persian round trip.
+Last run (2026-10-04, Phase 2b): typecheck ✅ · lint ✅ · Vitest **178/178** ✅ · build ✅ · Playwright **43/43** ✅ (21 flows + 22 visual).
+- Unit and catalog tests, plus DB integration tests: task flows; the creation core; project, workspace, checklist and auth services; Persian round trip; invitations (hashed token, expiry, email match, single-use), notification dedupe, member lifecycle, custom roles, teams, password reset, sessions, onboarding.
 - E2E fails any test whose pages log a console error, a hydration warning or an uncaught exception.
 
 ## 2. Risk-based test matrix (§86)
@@ -25,8 +25,8 @@ Last run (2026-10-01, Phase 2a): typecheck ✅ · lint ✅ · Vitest **149/149**
 | Assignment | I | access rule only | ⬜ | 3 |
 | Recurrence | U, I | rule generation, DST-free dates, single successor, races | ✅ | 2 |
 | Dependencies | U, I | cycle detection, self-edge | ✅ | 2 |
-| Workspace membership | I | membership-based visibility | 🟡 no join/leave/deactivate tests | 2b |
-| Invitation | I, E | — | ⬜ | 2b |
+| Workspace membership | I | membership-based visibility, deactivate/reactivate, remove, last-owner guard on deactivate | ✅ | 2b |
+| Invitation | I, E | hashed single-use token, expiry, revoke, email-match, duplicate-pending guard, accept → membership | ✅ | 2b |
 | Calendar timezone | U | `time.ts` offsets, DST gap/overlap, local dates | 🟡 lib only | 4 |
 | Time-block changes | I | — | ⬜ | 4 |
 | Habit logging | U, I | — | ⬜ | 5 |
@@ -35,7 +35,10 @@ Last run (2026-10-01, Phase 2a): typecheck ✅ · lint ✅ · Vitest **149/149**
 | Request / SLA logic | U (pure SLA clock), I | — | ⬜ | 9 |
 | Automation idempotency | I | — | ⬜ | 12 |
 | Form submission | I, E | — | ⬜ | 9 |
-| Notification generation | I | — | ⬜ | 2b |
+| Notification generation | I | `notify()` dedupe_key, one row per (event, recipient) | ✅ | 2b |
+| Password reset / sessions | I, E | single-use expiring token, invalidate-on-new-request, revoke-all-on-reset, list/revoke-one/revoke-others | ✅ | 2b |
+| Custom roles / teams | I | owner-only capability stripped, delete reassigns to base role, team CRUD/membership | ✅ | 2b |
+| Onboarding | I, E | setup step persists, completion idempotent, never blocks other routes | ✅ | 2b |
 
 Rule: whenever DB constraints, transactions or permissions matter, an integration test is required. Mocks of Prisma are not accepted as evidence.
 
@@ -51,6 +54,9 @@ Harness (in repo since Phase 2a): `playwright.config.ts` + `e2e/`.
 | `isolation.spec.ts` | second account sees no tasks/projects; direct project URL → "Not available" |
 | `i18n.spec.ts` | fa Accept-Language → RTL before sign-in; Persian validation; saved fa preference; switch to en keeps route + workspace + session; survives reload; cookie after sign-out; guest switcher; localized sign-in error; account beats cookie; unsupported cookie ignored |
 | `people.spec.ts` | allocation group near card top (names + badge meaning, real counts), photo vs initials, +N from real totals, header strip, task-row assignees (xs single initial), dark-surface rings, RTL mirroring |
+| `invitations.spec.ts` | send/list/revoke an invitation; an invalid invite link shows a clear not-found state |
+| `security.spec.ts` | change password + sessions list, then sign in with the new password; forgot-password generic confirmation |
+| `onboarding.spec.ts` | team path: setup → choose team → create workspace → skip first action → `/home`; re-visiting after completion is idempotent |
 | `visual.spec.ts` | §88 baselines (see §5) |
 
 ### Running from a clean checkout
@@ -58,21 +64,23 @@ Harness (in repo since Phase 2a): `playwright.config.ts` + `e2e/`.
 ```bash
 npm install
 npx playwright install chromium   # or set PW_CHANNEL=msedge / chrome to use an installed browser
-npm run db:dev && npm run db:deploy
+npm run db:deploy                 # applies migrations to whatever DATABASE_URL/DIRECT_URL point at
 npm run test:e2e                  # flows; builds into .next-e2e and starts `next start` on :3210
 npm run test:visual               # screenshot comparison
 npm run test:visual:update        # re-record after an intended UI change, then review the diff
 ```
 
+`DATABASE_URL` must point at a **disposable** Neon branch (not your personal Development branch, never Production) — the suite deletes and recreates `@e2e.local`/`@e2e.test` fixtures. `playwright.config.ts` sets `APP_ENV=test` automatically for local runs; global setup refuses to seed without it, and refuses unconditionally if `VERCEL_ENV=production`.
+
 - Global setup seeds deterministic fixtures (`e2e/support/seed.ts`) and first removes all `@e2e.local` / `@e2e.test` users and their data. It never touches other data.
-- One worker by design (local PGlite has one connection).
+- Flows run on one worker, serialized — a deliberate current choice (one seeded fixture set, shared), not a database-backend limitation. See "7. Known issues" below.
 - Use `E2E_DEV=1` to run against `next dev`.
 - Use `E2E_PORT` to change the port.
 
 | # | Flow | Executable from | Current state |
 |---|---|---|---|
-| F1 | New user → onboarding → personal planner → create → schedule → complete task | 2a (onboarding: 2b) | ✅ sign-up → planner → quick add (with date) → schedule in sheet → complete → Completed view. Onboarding ⬜ (Q-PO-3) |
-| F2 | Create workspace → invite → member joins → create project → assign task → comment → notification → complete | 3 | 🟡 create workspace + project + tasks + complete ✅; invite/join (2b), assign/comment/notification (3) ⬜ |
+| F1 | New user → onboarding → personal planner → create → schedule → complete task | 2b | ✅ sign-up → onboarding (personal path) → `/home`; planner → quick add (with date) → schedule in sheet → complete → Completed view |
+| F2 | Create workspace → invite → member joins → create project → assign task → comment → notification → complete | 3 | 🟡 create workspace + project + tasks + complete ✅; invite send/list/revoke ✅ (2b); member accept-via-real-link E2E not feasible (token is never stored, only its hash — covered at the integration layer instead, see `phase2b.integration.test.ts`); assign/comment/notification UI (3) ⬜ |
 | F3 | Create project → add members → create tasks → board → calendar → activity | 4 | 🟡 project + tasks ✅; members/board/activity (3), calendar (4) ⬜ |
 | F4 | Quantity habit → log amount → reach target → streak/history update | 5 | ⬜ |
 | F5 | Meeting → agenda → notes → decision → action item → task | 10 | ⬜ |
@@ -238,7 +246,7 @@ Phase 2a check: recorded, then an independent second run matched all 22.
 
 ## 7. Known issues / limitations
 
-- Local PGlite (`prisma dev`) serves one connection, so `DATABASE_POOL_MAX=1` and the race tests run serialized there. Uniqueness guarantees come from the DB constraints either way; re-run on real Postgres in CI.
+- Integration tests (`fileParallelism: false`, `vitest.config.mts`) and E2E flows (`workers: 1`, `playwright.config.ts`) both run serialized against one shared fixture set, by design — not because of a database-backend limit (Neon supports normal concurrent Postgres connections; the old PGlite single-connection constraint no longer applies, see `docs/ARCHITECTURE.md` → "Database (Neon)"). Uniqueness guarantees come from the DB constraints either way. Running them in parallel would need per-run fixture isolation (e.g. a unique schema/branch per worker), which hasn't been designed yet — a future improvement, not a correctness gap today.
 - The old scripted "Completed contains the task" timing flake is gone: the in-repo spec waits on the row leaving Today before checking Completed.
 - Native date/time inputs in the task sheet (custom picker planned).
 - `<details>` menus have no arrow-key navigation.
@@ -248,3 +256,16 @@ Phase 2a check: recorded, then an independent second run matched all 22.
 - Native `<input type="date|time">` controls follow the browser's locale and calendar rather than the app locale. They stay Gregorian, consistent with displayed dates; a custom picker is planned.
 - IANA timezone names in Settings and Team are shown as identifiers (LTR, untranslated). See Q-I18N-4.
 - The Quick Add parser understands English keywords only (documented in the UI; I18N-12).
+
+## 8. CI and the Neon/Vercel migration (2026-10)
+
+`.github/workflows/ci.yml` runs on every PR and on push to `main`: `checks` (typecheck, lint, `npm test`, `prisma migrate deploy`, `npm run build`) then `e2e` (Playwright flows only — see below). Both jobs run exclusively against a dedicated Neon **test** branch via `NEON_TEST_DATABASE_URL`/`NEON_TEST_DIRECT_URL` secrets, with `APP_ENV=test` set explicitly in the workflow (never relying on a default, unlike local runs). CI must never be given Production or a Preview-deployment's credentials.
+
+**Visual regression is not yet in CI.** Baselines are committed only for `win32-msedge`; the CI runner is `ubuntu-latest` + chromium, so there is no matching baseline to compare against. Generating one (`npm run test:visual:update` on that exact runner image, reviewed, then committed) is a one-time follow-up before `test:visual` can be added to `.github/workflows/ci.yml`.
+
+**Pending verification (needs actual Neon/Vercel dashboard access — not yet performed):**
+- [ ] Preview branch isolation: deploy a branch, create a throwaway record through the Preview URL, confirm it is **not** visible in Production, then delete it from the Preview branch only.
+- [ ] Production smoke test after the first real deploy: app loads, sign up, sign in, session survives refresh, create a task, edit it, create a workspace, switch context, sign out, sign back in, data persists. Clean up whatever the smoke test created.
+- [ ] Persistence across a Vercel redeploy (push a trivial change, confirm earlier data is still there after the new deployment is live).
+
+Once performed, record the actual result here (date, who ran it, outcome) rather than leaving the checklist unchecked.

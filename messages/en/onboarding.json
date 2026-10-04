@@ -1,0 +1,39 @@
+{
+  "metaTitle": "Welcome",
+  "stepOf": "Step {step} of {total}",
+  "continue": "Continue",
+  "setup": {
+    "heading": "Your setup",
+    "name": "Name",
+    "language": "Language",
+    "timezone": "Timezone",
+    "weekStart": "Week starts on",
+    "monday": "Monday",
+    "sunday": "Sunday",
+    "saturday": "Saturday"
+  },
+  "context": {
+    "heading": "How will you use planner?",
+    "personal": "Personal",
+    "team": "With a team"
+  },
+  "workspace": {
+    "heading": "Set up your workspace",
+    "name": "Workspace name",
+    "placeholder": "Acme Studio"
+  },
+  "firstAction": {
+    "personalHeading": "Create your first task",
+    "taskTitle": "Task",
+    "taskPlaceholder": "e.g. Plan the week",
+    "createTask": "Create task",
+    "skip": "Skip for now",
+    "teamHeading": "Bring your team in",
+    "inviteEmail": "Invite a teammate",
+    "inviteEmailPlaceholder": "teammate@company.com",
+    "sendInvite": "Send invite",
+    "projectName": "First project",
+    "projectPlaceholder": "e.g. Launch plan",
+    "createProject": "Create project"
+  }
+}

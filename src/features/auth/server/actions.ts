@@ -6,8 +6,10 @@ import { z } from "zod";
 import { getLocale, getTranslations } from "next-intl/server";
 import { LOCALE_COOKIE } from "@/i18n/config";
 import type { ErrorCode } from "@/i18n/messages";
+import type { ActionResult } from "@/lib/action-result";
 import { createSession, destroySession } from "@/server/auth/session";
 import { DomainError } from "@/server/errors";
+import { invalidInput, runAction } from "@/server/run-action";
 import * as service from "./service";
 
 export interface AuthFormState {
@@ -83,4 +85,20 @@ export async function signOutAction(): Promise<void> {
   (await cookies()).set(LOCALE_COOKIE, await getLocale(), { path: "/", sameSite: "lax", maxAge: 365 * 86_400 });
   await destroySession();
   redirect("/sign-in");
+}
+
+const forgotPasswordSchema = z.object({ email: emailSchema });
+
+export async function requestPasswordResetAction(raw: z.input<typeof forgotPasswordSchema>): Promise<ActionResult> {
+  const parsed = forgotPasswordSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  return runAction("auth", () => service.requestPasswordReset(parsed.data.email));
+}
+
+const resetPasswordSchema = z.object({ token: z.string().min(1), password: z.string().min(10, "passwordTooShort").max(200) });
+
+export async function resetPasswordAction(raw: z.input<typeof resetPasswordSchema>): Promise<ActionResult> {
+  const parsed = resetPasswordSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  return runAction("auth", () => service.resetPassword(parsed.data.token, parsed.data.password));
 }

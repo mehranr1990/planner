@@ -27,7 +27,7 @@ Classification:
 | User | Identity + preferences (tz, **locale**, theme, week start, active workspace) | `email` unique (lower-cased); `locale` is a `text` column validated in code against `LOCALES`, not an enum, so new languages need no migration | auth, settings, i18n |
 | Session | Hashed session token | `token_hash` unique; idx user, expires | auth |
 | Workspace | Tenant | `slug` unique | workspace |
-| Membership | User ↔ workspace, base role, optional custom role, status | unique (workspace, user) | permissions |
+| Membership | User ↔ workspace, base role, optional custom role, status, `is_external` (guest/external collaborator) | unique (workspace, user) | permissions |
 | Project | Status, health, priority, visibility, dates | scope CHECK; idx (workspace, status) | projects |
 | ProjectMember | LEAD/EDITOR/VIEWER | PK (project, user) | access rules (creator added as LEAD) |
 | Task | Task engine (§11). Scheduling shape in §4 | scope / schedule / start≤due / no-self-parent / estimate≥0 CHECKs; unique (series, occurrence_on), unique (created_by, client_mutation_id) | planner, projects |
@@ -35,22 +35,23 @@ Classification:
 | RecurrenceSeries | Recurrence rule | scope, interval≥1, max_count≥1 CHECKs | recurrence |
 | TaskDependency | blocking → blocked | PK pair; no-self CHECK; cycles rejected in domain | service only (no UI) |
 | Activity | Append-only user-facing history | idx (entity, created), (workspace, created) | tasks, projects |
-| AuditEvent | Append-only compliance history | idx (workspace, created), (target) | workspace, roles, project status |
+| AuditEvent | Append-only compliance history | idx (workspace, created), (target) | workspace, roles, project status, invitations, teams, members |
+| WorkspaceRole | Custom role: name, base role, capabilities[] (owner-only capabilities stripped server-side) | unique (workspace, name) | `/settings/workspace/roles`, member-role assignment |
+| Team, TeamMember | Teams and their membership (LEAD/MEMBER) | PK (team, user) | `/team/teams` |
+| Invitation | Invite flow: hashed single-use token, 7-day expiry, `is_external`, `accepted_membership_id` | partial unique: one PENDING per (workspace, lower(email)) | `/team/invitations`, `/invite/[token]` |
+| Notification | In-app notification generation (`dedupe_key` unique, enforced by `notify()`) | idx (recipient, read, created) | invitation accepted, role changed; UI consumer is Phase 6 |
+| PasswordResetToken | Hashed, single-use, expiring reset token | `token_hash` unique; idx user | `/forgot-password`, `/reset-password/[token]` |
 
 ## 3. SCHEMA-ONLY (migrated, not yet used by code)
 
 | Model | Planned use | Phase |
 |---|---|---|
 | NotificationPreference | per category × channel preferences | 6 |
-| WorkspaceRole | custom roles UI | 2b |
-| Team, TeamMember | teams | 2b |
-| Invitation | invite flow (partial unique: one PENDING per workspace+email) | 2b |
 | Area | life/work areas | 3 |
 | ProjectSection | lists/columns | 3 |
 | TaskAssignee, TaskWatcher | assignment and watching UI. Assignees are already honoured in access rules | 3 |
 | Label, TaskLabel | labels (partial unique on lower(name) per owner/workspace) | 3 |
 | Comment | comments (single-parent CHECK) | 3 |
-| Notification | in-app notifications (`dedupe_key` unique) | 2b (generation), 6 (UI) |
 | SavedView | saved planner/project views | 3 |
 
 ## 4. Task scheduling and recurrence (implemented rules)
@@ -70,10 +71,6 @@ Recurrence:
 - Changing the rule ends the old series.
 
 ## 5. PLANNED entities (by phase; not migrated)
-
-### Phase 2b — Workspaces
-- Invitation flow: uses the existing table and adds `accepted_membership_id`.
-- `ExternalCollaborator` is modelled as a GUEST membership with `is_external` **[ASSUMPTION]**.
 
 ### Phase 3 — Task engine completion & projects
 - `TaskParticipant`: §12 "participants", distinct from assignee and watcher. Open question Q-DM-1.
@@ -182,7 +179,7 @@ Recurrence:
 5. **Search index** (§48), permission-aware.
 6. **FileObject vs Attachment** split (§39 "metadata separate from storage").
 7. **Task participants** (§12), distinct from assignees and watchers.
-8. **Onboarding state** (§87 flow 1): `User.onboarded_at` or similar. Content is undefined (Q-PO-3).
+8. ~~**Onboarding state**~~ — **done (2b):** `User.onboardedAt` + `User.onboardingStep` (Q-PO-3 resolved).
 9. **Exchange rates** for multi-currency budgets (§26).
 10. **Email ingestion address** per user/workspace (§34, §68).
 11. **Data export / account deletion.** Not in the spec; flagged only, not planned (§98).
@@ -199,6 +196,8 @@ Recurrence:
 | Q-DM-6 | Meeting action items: a `source_meeting_id` column on Task, or a generic `TaskSource` link table (shared with chat, email, forms, capture)? |
 | Q-DM-7 | Multi-currency: report per currency only, or convert with stored rates? |
 | Q-DM-8 | Issue/bug fields: columns on Task, or an extension table? |
+| ~~Q-DM-9~~ | **Resolved (2b, `docs/phases/PHASE_2b.md` §D.1):** `PasswordResetToken` — a new request invalidates the user's prior unused tokens rather than allowing several valid at once. |
+| ~~Q-DM-10~~ | **Resolved (2b, `docs/phases/PHASE_2b.md` §D.1):** "removal revokes sessions' workspace access immediately" needs no new session-revocation mechanism — `getViewer()` already re-reads active `Membership` rows fresh on every request. |
 
 ## 8. Migration policy
 

@@ -36,5 +36,21 @@
   "workspaceNameTooShort": "Use at least 2 characters",
   "workspaceCreateFailed": "Couldn’t create the workspace. Please try again.",
   "roleChangeForbidden": "You don’t have permission to make that change.",
-  "lastOwner": "A workspace needs at least one owner."
+  "lastOwner": "A workspace needs at least one owner.",
+  "invitationForbidden": "You don’t have permission to invite people with that role.",
+  "invitationAlreadyPending": "There’s already a pending invitation for this email.",
+  "invitationInvalid": "This invitation link isn’t valid.",
+  "invitationRevoked": "This invitation has been revoked.",
+  "invitationExpired": "This invitation has expired. Ask for a new one.",
+  "invitationEmailMismatch": "This invitation was sent to a different email address.",
+  "invitationAlreadyMember": "You’re already a member of this workspace.",
+  "teamForbidden": "You don’t have permission to manage teams.",
+  "teamNameTaken": "A team with this name already exists.",
+  "teamNameTooShort": "Use at least 2 characters",
+  "roleManageForbidden": "You don’t have permission to manage roles.",
+  "roleNameTaken": "A role with this name already exists.",
+  "roleNameTooShort": "Use at least 2 characters",
+  "currentPasswordIncorrect": "Your current password is incorrect",
+  "cannotRevokeCurrentSession": "You can’t revoke the session you’re currently using. Sign out instead.",
+  "resetTokenInvalid": "This reset link is invalid or has expired."
 }

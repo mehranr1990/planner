@@ -7,6 +7,8 @@ export const CAPABILITIES = [
   "members.view",
   "members.invite",
   "members.manage",
+  "members.deactivate",
+  "guests.invite",
   "roles.manage",
   "teams.manage",
   "audit.view",

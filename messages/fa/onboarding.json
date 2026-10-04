@@ -1,0 +1,39 @@
+{
+  "metaTitle": "خوش آمدید",
+  "stepOf": "گام {step} از {total}",
+  "continue": "ادامه",
+  "setup": {
+    "heading": "تنظیمات شما",
+    "name": "نام",
+    "language": "زبان",
+    "timezone": "منطقهٔ زمانی",
+    "weekStart": "آغاز هفته",
+    "monday": "دوشنبه",
+    "sunday": "یکشنبه",
+    "saturday": "شنبه"
+  },
+  "context": {
+    "heading": "چطور از planner استفاده می‌کنید؟",
+    "personal": "شخصی",
+    "team": "با یک تیم"
+  },
+  "workspace": {
+    "heading": "فضای کاری‌تان را بسازید",
+    "name": "نام فضای کاری",
+    "placeholder": "استودیو آکمه"
+  },
+  "firstAction": {
+    "personalHeading": "اولین کارتان را بسازید",
+    "taskTitle": "کار",
+    "taskPlaceholder": "مثلاً برنامهٔ هفته",
+    "createTask": "ساختن کار",
+    "skip": "فعلاً رد شو",
+    "teamHeading": "تیم‌تان را وارد کنید",
+    "inviteEmail": "دعوت یک هم‌تیمی",
+    "inviteEmailPlaceholder": "teammate@company.com",
+    "sendInvite": "ارسال دعوت",
+    "projectName": "اولین پروژه",
+    "projectPlaceholder": "مثلاً برنامهٔ راه‌اندازی",
+    "createProject": "ساختن پروژه"
+  }
+}

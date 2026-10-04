@@ -34,7 +34,7 @@ async function open(page: Page, key: ShowcaseKey, surface: Surface) {
     projects: "/projects",
     project: `/projects/${s.projectId}`,
     team: "/team",
-    settings: "/settings",
+    settings: "/settings/profile",
   }[surface];
   await signInShowcase(page, key, path.split("?")[0]!);
   if (surface === "task-sheet") {

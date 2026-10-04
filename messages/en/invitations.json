@@ -1,0 +1,36 @@
+{
+  "metaTitle": "Invitations",
+  "invite": "Invite",
+  "inviteTitle": "Invite someone",
+  "email": "Email",
+  "role": "Role",
+  "externalCollaborator": "External collaborator",
+  "cancel": "Cancel",
+  "sendInvite": "Send invite",
+  "expiresOn": "expires {date}",
+  "status": {
+    "PENDING": "Pending",
+    "ACCEPTED": "Accepted",
+    "REVOKED": "Revoked",
+    "EXPIRED": "Expired"
+  },
+  "resend": "Resend",
+  "revoke": "Revoke",
+  "unavailableTitle": "Invitations unavailable",
+  "emptyTitle": "No invitations yet",
+  "emptyHint": "Invite people to this workspace to get them started.",
+  "invalidStates": {
+    "invalid": { "title": "Invitation not found", "hint": "This link isn’t valid. Ask whoever invited you for a new one." },
+    "expired": { "title": "Invitation expired", "hint": "This invitation has expired. Ask whoever invited you to send a new one." },
+    "revoked": { "title": "Invitation revoked", "hint": "This invitation was revoked by a workspace admin." },
+    "accepted": { "title": "Already accepted", "hint": "This invitation has already been used." }
+  },
+  "goToApp": "Go to the app",
+  "inviteHeading": "Join {workspace}",
+  "createAccountToAccept": "Create an account to accept",
+  "alreadyHaveAccount": "Already have an account?",
+  "signIn": "Sign in",
+  "emailMismatch": "This invitation was sent to {email}. Sign in with that email to accept it.",
+  "switchAccount": "Sign in with a different account",
+  "accept": "Accept invitation"
+}

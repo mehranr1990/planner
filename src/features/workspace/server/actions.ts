@@ -42,3 +42,40 @@ export async function changeMemberRoleAction(raw: z.input<typeof roleSchema>): P
   const viewer = await getViewer();
   return runAction("workspace", () => service.changeMemberRole(viewer, parsed.data));
 }
+
+const memberSchema = z.object({ workspaceId: z.cuid(), userId: z.cuid() });
+
+export async function removeMemberAction(raw: z.input<typeof memberSchema>): Promise<ActionResult> {
+  const parsed = memberSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("workspace", () => service.removeMember(viewer, parsed.data));
+}
+
+export async function deactivateMemberAction(raw: z.input<typeof memberSchema>): Promise<ActionResult> {
+  const parsed = memberSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("workspace", () => service.deactivateMember(viewer, parsed.data));
+}
+
+export async function reactivateMemberAction(raw: z.input<typeof memberSchema>): Promise<ActionResult> {
+  const parsed = memberSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("workspace", () => service.reactivateMember(viewer, parsed.data));
+}
+
+const workspaceSettingsSchema = z.object({
+  workspaceId: z.cuid(),
+  name: z.string().trim().min(2, "workspaceNameTooShort").max(80).optional(),
+  iconUrl: z.url().nullable().optional(),
+  timezone: z.string().refine(isValidTimeZone, "timezoneUnknown").optional(),
+});
+
+export async function updateWorkspaceSettingsAction(raw: z.input<typeof workspaceSettingsSchema>): Promise<ActionResult> {
+  const parsed = workspaceSettingsSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("workspace", () => service.updateWorkspaceSettings(viewer, parsed.data));
+}

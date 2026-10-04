@@ -29,20 +29,34 @@ Global layout:
 
 ---
 
-## 1. Built (Phase 1–2)
+## 1. Built (Phase 1–2b)
 
 | Route | Purpose | States | Mobile |
 |---|---|---|---|
-| `/sign-in`, `/sign-up` | Email/password auth with safe `?next=` | field errors, wrong credentials, pending | single column |
+| `/sign-in`, `/sign-up` | Email/password auth with safe `?next=`; sign-up accepts `?email=` prefill (invite flow) | field errors, wrong credentials, pending | single column |
 | `/` | Redirects to `/home` or `/sign-in` | — | — |
-| `/home` | Context-aware home: Today + quick add, Next-up dark card, counts, projects | L, E, Er | stacked |
+| `/home` | Context-aware home: Today + quick add, Next-up dark card, counts, projects; redirects to `/onboarding` once, if not yet onboarded | L, E, Er | stacked |
+| `/onboarding` | 4-step wizard: setup → usage context → workspace (skipped if already in one) → first action | step transition; idempotent re-visit after completion bounces to `/home` | full-screen stepper |
+| `/forgot-password` | Request a reset email | generic success message always | single column |
+| `/reset-password/[token]` | Set a new password | invalid/expired token, success → `/sign-in` | single column |
+| `/invite/[token]` | Invite preview + accept; sign-up inline if no account | invalid/expired/revoked/accepted, email-mismatch | single column |
 | `/planner/[view]` | 8 views; `?scope=`; `?task=` sheet; `?deleted=` undo | L, E (per view), Er, NF, conflict, truncated >200 | scrollable pills, bottom sheet |
 | `/projects` | Project cards for the active context; create dialog; archived toggle | L, E, A | 1-column cards |
 | `/projects/[projectId]` | Tasks, quick add, status/health/archive, overview, members | L, E, NF≡P, A, read-only | stacked |
-| `/team` | Member directory, role change | personal context, no workspaces, no `members.view` | list |
-| `/settings` | Profile/preferences, workspaces, account | save success/error | stacked |
+| `/team` | Member directory, role change, deactivate/reactivate/remove, deactivated-members filter | personal context, no workspaces, no `members.view` | list |
+| `/team/invitations` | Pending/accepted/revoked/expired list, invite dialog, resend/revoke | E, P | record cards |
+| `/team/teams`, `/team/teams/[teamId]` | Team CRUD, membership, lead | E, P | record cards |
+| `/team/guests` | Guest/external collaborator list | E, P | record cards |
+| `/settings/profile`, `/account`, `/appearance`, `/preferences` | §6 identity settings split | save success/error | stacked, pill sub-nav |
+| `/settings/security` | Change password, active sessions (list/revoke-one/revoke-all-others) | E (no other sessions), confirm dialogs | stacked |
+| `/settings/notifications`, `/connections` | Placeholders (full scope is Phase 6 / 12) | E only | stacked |
+| `/settings/workspace/general` | Workspace name/icon/timezone | P if not `workspace.manage` | stacked |
+| `/settings/workspace/roles` | Custom-role editor (capability checklist by module) | E (no custom roles), P | stacked |
+| `/settings/workspace/audit` | Audit log, cursor-paginated | E, P | stacked |
 
-Overlays already built: TaskSheet, CreateProject dialog, ContextSwitcher menu, Account menu, UndoDeleteBanner.
+Overlays already built: TaskSheet, CreateProject dialog, ContextSwitcher menu, Account menu, UndoDeleteBanner, InviteDialog, ConfirmDialog (remove/deactivate/revoke-invite/revoke-session/delete-role), RoleEditorDialog, CreateTeamDialog.
+
+Not built in 2b (explicitly deferred, see COVERAGE_MATRIX.md and `docs/phases/PHASE_2b.md` §100 item 9): avatar upload (needs Q-PO-8), transfer ownership (Phase 3), workspace activity feed (Phase 6), team directory (Phase 14).
 
 Localization (I18N, done 2026-10-01): every built route renders in `en` (LTR) and `fa` (RTL).
 - `/settings` has a **Language** field (saved to the account and the cookie; applies in place).
@@ -59,39 +73,13 @@ Localization (I18N, done 2026-10-01): every built route renders in `en` (LTR) an
 
 Each block lists routes · screens/tabs · overlays · states · desktop · mobile.
 
-### 2.1 Auth, onboarding, account (Phases 2b, 6, 15)
-- **Routes:**
-  - `/onboarding` (steps)
-  - `/invite/[token]`
-  - `/forgot-password`, `/reset-password/[token]` *(needs an email provider, Q-PO-4)*
-  - `/settings/profile | account | appearance | notifications | preferences | security | connections` (§6 split; today one page)
-- **Screens:**
-  - Onboarding: name/tz confirm → personal vs team → first tasks (content TBD, Q-PO-3).
-  - Invite accept: workspace preview, accept/decline; sign-up inline when the user has no account.
-- **Overlays:** sign-out-all-sessions confirm, delete-avatar confirm.
-- **States:**
-  - Invite: expired/revoked/already-member/wrong-email (each distinct; this is the invitee's own token, so no leak).
-  - Sessions list L/E.
-- **Mobile:** single column; settings sub-nav becomes a list → detail push.
+### 2.1 Auth, onboarding, account — **done, see §1 (Built)**
 
-### 2.2 Workspace & team (Phase 2b, 14)
-- **Routes:**
-  - `/team` (members)
-  - `/team/invitations`
-  - `/team/teams`, `/team/teams/[teamId]`
-  - `/team/guests`
-  - `/settings/workspace/general | roles | audit`
-- **Overlays:**
-  - Invite dialog (emails, role, message)
-  - Member sheet (role, teams, deactivate/remove confirm)
-  - Custom-role editor sheet (capability checklist grouped by module)
-  - Transfer-ownership confirm
-- **States:**
-  - E: no invites/teams.
-  - P: no `members.manage` shows a read-only directory.
-  - A: deactivated members filter.
-  - Last-owner guard message.
-- **Desktop:** table-like rows. **Mobile:** record cards; actions in a bottom sheet.
+Remaining for later phases: avatar upload (needs Q-PO-8, → Phase 3), delete-avatar confirm overlay, full notification-preferences UI (→ Phase 6), connected services (→ Phase 12).
+
+### 2.2 Workspace & team — **done, see §1 (Built)**
+
+Remaining: transfer-ownership confirm overlay (→ Phase 3, no acceptance criteria existed at the 2b gate), team directory (→ Phase 14).
 
 ### 2.3 Planner remainder (Phase 3)
 - Additions to `/planner/[view]`:
