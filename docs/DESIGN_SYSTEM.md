@@ -109,13 +109,24 @@ Spacing scale is Tailwind's 4px grid. Panels pad 24px (mobile 16px); gaps betwee
 
 ## 7. Navigation
 
-- **Desktop ≥1024px:** 64px left icon rail (circular buttons, tooltip labels, grouped: primary
-  modules / workspace modules / bottom: theme + settings). Top bar: context switcher (personal ↔
-  workspace), module-local tabs as pills (black = active), right cluster: search/command,
-  attention, notifications, quick add, avatar.
-- **Tablet 640–1023px:** rail stays, top bar collapses tabs into a horizontally scrollable pill row.
-- **Mobile <640px:** no rail. Top: title + round actions. Bottom: floating pill tab bar (Home,
-  Planner, Calendar, Chat, More) + black circular quick-add FAB. Detail views open as bottom sheets.
+Revised 2026-10-04 (reference alignment, top-shell redesign): the left icon rail described below in
+§1's reference observations was never the only pattern in the source references — the same
+screenshots also show a horizontal top nav (logo left, centred text pills, black active pill,
+round actions + avatar right). The product owner chose that variant for the shell; there is no
+desktop rail.
+
+- **Desktop ≥1024px:** one horizontal header, no side rail. Three zones in a
+  `[minmax(0,1fr)_auto_minmax(0,1fr)]` grid (same pattern as §14's panel header): **start** — logo
+  + compact context switcher (personal ↔ workspace); **centre** — primary nav as plain text links,
+  the active one in a black pill (`PrimaryNav`, only modules that exist — currently Home, Planner,
+  Projects, Team); **end** — quick add, theme toggle, account avatar, all 36–40px circular actions.
+  Sits directly on the page background (no card, no shadow). Below it, each page renders its own
+  compact `PageTitle`.
+- **Tablet/Mobile <1024px:** the centre nav hides (`PrimaryNav` is `hidden lg:flex`); the header
+  keeps logo + context switcher (start) and actions (end) only. Primary navigation moves to
+  `MobileTabBar`: a floating pill bar (Home, Planner, Projects, Team) + black circular quick-add
+  FAB, unaffected by the desktop redesign. Detail views open as bottom sheets.
+- Settings has no standalone nav entry — it lives in the account (avatar) menu on every breakpoint.
 
 ## 8. Component rules
 

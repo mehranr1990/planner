@@ -36,15 +36,17 @@ test.describe("workspaces, projects and preferences", () => {
   });
 
   test("dark and light theme persist across reloads", async ({ page }) => {
+    // One toggle in the shell header: its accessible name is the action it performs next
+    // ("Dark theme" while light, "Light theme" while dark), not a persistent on/off pair.
     await signUp(page);
     await page.goto("/home");
     await page.getByRole("button", { name: "Dark theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(page.getByRole("button", { name: "Dark theme" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Light theme" })).toBeVisible();
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.getByRole("button", { name: "Light theme" }).click();
-    await expect(page.getByRole("button", { name: "Light theme" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Dark theme" })).toBeVisible();
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   });

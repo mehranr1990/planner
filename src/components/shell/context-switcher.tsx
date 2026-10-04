@@ -51,16 +51,16 @@ export function ContextSwitcher({ workspaces, activeId }: { workspaces: ContextO
     <details ref={ref} className="group relative">
       <summary
         className={cn(
-          "flex h-10 cursor-pointer list-none items-center gap-2 rounded-full bg-surface-elevated ps-1.5 pe-3 text-sm ring-1 ring-border-subtle select-none hover:ring-border-strong [&::-webkit-details-marker]:hidden",
+          "flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-full bg-surface-elevated ps-1 pe-2.5 text-[13px] ring-1 ring-border-subtle select-none hover:ring-border-strong [&::-webkit-details-marker]:hidden",
           pending && "opacity-60",
         )}
         aria-label={t("change", { name: active?.name ?? tc("personal") })}
       >
-        <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface-active text-foreground-on-active">
-          {active ? <Building2 className="size-3.5" aria-hidden /> : <User className="size-3.5" aria-hidden />}
+        <span className="inline-flex size-6 items-center justify-center rounded-full bg-surface-active text-foreground-on-active">
+          {active ? <Building2 className="size-3" aria-hidden /> : <User className="size-3" aria-hidden />}
         </span>
-        <span className="max-w-[10rem] truncate font-medium">{active?.name ?? tc("personal")}</span>
-        <ChevronDown className="size-4 text-foreground-muted transition-transform group-open:rotate-180" aria-hidden />
+        <span className="max-w-[9rem] truncate font-medium">{active?.name ?? tc("personal")}</span>
+        <ChevronDown className="size-3.5 text-foreground-muted transition-transform group-open:rotate-180" aria-hidden />
       </summary>
       <div className="animate-overlay absolute top-12 start-0 z-40 w-64 rounded-[20px] bg-surface-elevated p-2 shadow-overlay ring-1 ring-border-subtle">
         <ul className="flex flex-col gap-0.5">

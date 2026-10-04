@@ -54,8 +54,8 @@ export function SectionHeader({
 
 export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
-      <h1 className="text-[30px] leading-[34px] font-medium tracking-[-0.02em] sm:text-[32px] sm:leading-[38px]">{children}</h1>
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-4 sm:mb-5">
+      <h1 className="text-[26px] leading-[32px] font-medium tracking-[-0.02em] sm:text-[28px] sm:leading-[34px]">{children}</h1>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );

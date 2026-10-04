@@ -11,7 +11,7 @@ Shared state vocabulary, used by every surface (§80):
 - **NF** Not found.
 - **PD** Partial data: some sources are hidden by permissions or failed to load.
 
-Unseen pages follow §96: compose the existing patterns (Panel/Card/SectionHeader/pill tabs/Sheet/rail).
+Unseen pages follow §96: compose the existing patterns (Panel/Card/SectionHeader/pill tabs/Sheet).
 
 **People:** wherever a planned page shows a small group of related users (participants, reviewers, assignees, channel members, approvers, resource holders, deal team…), it uses `PeopleCluster` (DESIGN_SYSTEM §13), placed near the card or section header.
 
@@ -22,10 +22,9 @@ Unseen pages follow §96: compose the existing patterns (Panel/Card/SectionHeade
 - `dir="auto"` on user content
 - mobile RTL
 
-Global layout:
-- Desktop ≥1024: rail + top bar + content, with a right-side Sheet for detail.
-- Tablet 640–1023: rail, with tabs collapsing into scrollable pills.
-- Mobile <640: top bar + content + floating tab bar + FAB. Detail and forms open as bottom sheets; tables become record cards.
+Global layout (revised 2026-10-04, top-shell redesign — see DESIGN_SYSTEM.md §7):
+- Desktop ≥1024: one horizontal header (logo + context start, primary nav centred, actions end) + content, with a right-side Sheet for detail. No side rail.
+- Tablet/Mobile <1024: header keeps only logo/context (start) and actions (end); primary navigation moves to the floating bottom tab bar + FAB. Detail and forms open as bottom sheets; tables become record cards.
 
 ---
 
@@ -316,7 +315,7 @@ Remaining: transfer-ownership confirm overlay (→ Phase 3, no acceptance criter
 
 ## 3. Navigation plan
 
-- **Rail (current):** Home · Planner · Projects · Team, with Settings and the theme toggle at the bottom.
+- **Desktop header nav (current):** Home · Planner · Projects · Team, as centred text pills (`PrimaryNav`). Settings lives in the account menu; the theme toggle is a header action, not part of this list.
 - Modules join only when shipped (D7). Target grouping:
   - **Work:** Home, Planner, Calendar, Projects, Chat
   - **Life:** Habits, Goals, Focus

@@ -11,7 +11,7 @@ Implements §86 (risk-based testing), §87 (E2E flows), §88 (visual regression)
 | `npm test` | Vitest: unit + DB integration (integration skips without `DATABASE_URL`) |
 | `npm run build` | production build |
 
-Last run (2026-10-04, Phase 2b): typecheck ✅ · lint ✅ · Vitest **178/178** ✅ · build ✅ · Playwright **43/43** ✅ (21 flows + 22 visual).
+Last run (2026-10-04, Phase 2b + top-shell redesign §3f): typecheck ✅ · lint ✅ · Vitest **178/178** ✅ · build ✅ · Playwright **43/43** ✅ (21 flows + 22 visual, re-recorded for the new shell header).
 - Unit and catalog tests, plus DB integration tests: task flows; the creation core; project, workspace, checklist and auth services; Persian round trip; invitations (hashed token, expiry, email match, single-use), notification dedupe, member lifecycle, custom roles, teams, password reset, sessions, onboarding.
 - E2E fails any test whose pages log a console error, a hydration warning or an uncaught exception.
 
@@ -180,6 +180,22 @@ Reported by the product owner after comparing the app with the reference, then e
 | PGlite wedged when Playwright stopped the server with a pooled connection open | E2E pool idle timeout 300ms (`DATABASE_POOL_IDLE_MS`) + global teardown wait; two back-to-back full runs verified |
 
 Visual baseline: the first run after the change failed exactly the 10 changed screens (planner ×5, sheet ×3, settings ×2), and the 12 untouched screens passed. Re-recorded, then two consecutive full runs passed 38/38, across a date change.
+
+## 3f. Top-shell redesign (2026-10-04)
+
+Product-owner request: redesign the top app shell to match a reference's horizontal header (logo left, centred text nav with a black active pill, round actions + avatar right), replacing the desktop left icon rail. Scope was the shared shell only — no product/permission/data changes.
+
+| Change | Detail |
+|---|---|
+| `Rail` removed | Desktop primary nav moved into the header as `PrimaryNav` (plain text links, active = black pill, `hidden lg:flex`) |
+| `nav.ts` | `SECONDARY_NAV` (Settings) removed — redundant with the account (avatar) menu, which already linked to Settings |
+| `ThemeToggle` | Was a vertical two-button stack (Dark/Light, each with `aria-pressed`) sized for the rail; now one compact circular action (`IconButton`) whose label is the action it performs next ("Dark theme" while light, "Light theme" while dark) — fits the header's single-icon-per-action rhythm |
+| `ContextSwitcher` | Tightened (`h-10`→`h-9`, icon `size-7`→`size-6`) to sit naturally next to the logo |
+| `AppShell` header | Three-zone CSS grid (`[minmax(0,1fr)_auto_minmax(0,1fr)]`, same pattern as §14's panel header), sticky, no card/shadow |
+| `PageTitle` | Slightly tighter (`mb-5/6`→`mb-4/5`, `30–32px`→`26–28px`) for a more compact page-title row under the new header |
+| `MobileTabBar` | Unchanged — primary nav below `lg` stays the floating bottom tab bar, as requested ("do not force the full desktop navigation onto mobile") |
+
+Regression (§90): `Rail`/`ThemeToggle`/`ContextSwitcher`/`nav.ts` usages were grep-audited (COMPONENT_INVENTORY.md §3) before changing; only `AppShell` consumed them. `e2e/workspace.spec.ts`'s theme-toggle test asserted on the old two-button `aria-pressed` pattern — updated to assert on the new single-button's flipping accessible name instead (same `data-theme`/persistence assertions, unchanged). All 22 visual baselines re-recorded (every page shares the shell) and verified stable across two consecutive runs; all 21 E2E flows, all 178 unit/integration tests, typecheck, lint and build re-verified green after the change.
 
 ## 4. Regression (§90)
 

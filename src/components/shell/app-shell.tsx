@@ -8,18 +8,19 @@ import { signOutAction } from "@/features/auth/server/actions";
 import type { Viewer } from "@/server/context";
 import { ContextSwitcher } from "./context-switcher";
 import { MobileTabBar } from "./mobile-tab-bar";
-import { Rail } from "./rail";
+import { PrimaryNav } from "./primary-nav";
+import { ThemeToggle } from "./theme-toggle";
 
 function BrandMark() {
   const t = useTranslations();
   // Original mark: two offset rounded tiles (a plan + its execution). Not derived from any reference logo.
   return (
-    <Link href="/home" className="flex items-center gap-2.5" aria-label={t("navigation.homeLink")}>
-      <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
+    <Link href="/home" className="flex shrink-0 items-center gap-2" aria-label={t("navigation.homeLink")}>
+      <svg viewBox="0 0 28 28" className="size-6" aria-hidden>
         <rect x="2" y="2" width="16" height="16" rx="6" fill="var(--surface-active)" />
         <rect x="10" y="10" width="16" height="16" rx="6" fill="var(--accent-blue-soft)" stroke="var(--surface-active)" strokeWidth="2" />
       </svg>
-      <span className="hidden text-[19px] font-medium tracking-[-0.02em] sm:inline" dir="ltr">
+      <span className="hidden text-[17px] font-medium tracking-[-0.02em] sm:inline" dir="ltr">
         {t("common.brand")}
       </span>
     </Link>
@@ -57,28 +58,29 @@ function AccountMenu({ viewer }: { viewer: Viewer }) {
 export function AppShell({ viewer, children }: { viewer: Viewer; children: ReactNode }) {
   const t = useTranslations();
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex min-h-dvh flex-col">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-full focus:bg-surface-elevated focus:px-4 focus:py-2">
         {t("common.skipToContent")}
       </a>
-      <Rail theme={viewer.user.theme} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-[76px] items-center gap-3 bg-gradient-to-b from-background via-background/90 to-transparent px-4 sm:px-6 lg:ps-2">
+      {/* Single horizontal shell header: logo+context start, primary nav centred, actions end.
+          Sits directly on the page background — no card, no shadow (one continuous canvas). */}
+      <header className="sticky top-0 z-30 grid h-16 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 bg-gradient-to-b from-background via-background/92 to-transparent px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3 justify-self-start">
           <BrandMark />
-          <div className="ms-1 sm:ms-6">
-            <ContextSwitcher workspaces={viewer.workspaces.map((w) => ({ id: w.id, name: w.name }))} activeId={viewer.activeWorkspace?.id ?? null} />
-          </div>
-          <div className="ms-auto flex items-center gap-2">
-            <IconLink href="/planner/inbox#quick-add" label={t("navigation.quickAdd")} className="hidden sm:inline-flex">
-              <Plus className="size-[18px]" strokeWidth={1.75} aria-hidden />
-            </IconLink>
-            <AccountMenu viewer={viewer} />
-          </div>
-        </header>
-        <main id="main" className="min-w-0 flex-1 px-4 pb-32 sm:px-6 lg:ps-2 lg:pe-8 lg:pb-10">
-          {children}
-        </main>
-      </div>
+          <ContextSwitcher workspaces={viewer.workspaces.map((w) => ({ id: w.id, name: w.name }))} activeId={viewer.activeWorkspace?.id ?? null} />
+        </div>
+        <div className="justify-self-center">
+          <PrimaryNav />
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
+          <IconLink href="/planner/inbox#quick-add" label={t("navigation.quickAdd")} className="hidden sm:inline-flex">
+            <Plus className="size-[18px]" strokeWidth={1.75} aria-hidden />
+          </IconLink>
+          <ThemeToggle theme={viewer.user.theme} />
+          <AccountMenu viewer={viewer} />
+        </div>
+      </header>
+      <main id="main" className="min-w-0 flex-1 px-4 pt-4 pb-32 sm:px-6 sm:pt-5 lg:px-8 lg:pb-10">{children}</main>
       <MobileTabBar />
     </div>
   );
