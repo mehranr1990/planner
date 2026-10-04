@@ -152,5 +152,39 @@
     "reminder_removed": "<actor>{name}</actor> removed a reminder",
     "other": "<actor>{name}</actor> changed this task"
   },
-  "deletedBanner": "Task deleted"
+  "deletedBanner": "Task deleted",
+  "bulk": {
+    "selectAll": "Select all",
+    "selectedCount": "{count, plural, one {# selected} other {# selected}}",
+    "selectOne": "Select “{title}”",
+    "actions": {
+      "complete": "Complete",
+      "reopen": "Reopen",
+      "priority": "Priority",
+      "dueDate": "Due date",
+      "clearDueDate": "Clear due date",
+      "labels": "Labels",
+      "labelsHint": "Click a label to add, − to remove",
+      "addLabel": "Add label “{name}”",
+      "removeLabel": "Remove label “{name}”",
+      "assign": "Assign",
+      "addAssignee": "Assign {name}",
+      "removeAssignee": "Unassign {name}",
+      "move": "Move to project",
+      "moveToNone": "No project",
+      "delete": "Delete"
+    },
+    "priority": { "NONE": "None", "LOW": "Low", "MEDIUM": "Medium", "HIGH": "High", "URGENT": "Urgent" },
+    "confirmDelete": {
+      "title": "{count, plural, one {Delete this task?} other {Delete # tasks?}}",
+      "reason": "Deleted tasks can be restored from Undo for a short time after."
+    },
+    "result": {
+      "partial": "Updated {updated, number} · skipped {skipped, number} (no permission)",
+      "all": "Updated {updated, number}"
+    }
+  },
+  "reorder": {
+    "handle": "Reorder “{title}”"
+  }
 }

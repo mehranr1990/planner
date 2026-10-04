@@ -13,11 +13,12 @@ import { canAddTasksToProject, findVisibleProject } from "@/features/projects/se
 import { wouldCreateCycle } from "../domain/dependencies";
 import { isPlannerView } from "../domain/planner-views";
 import { parseQuickAdd } from "../domain/quick-add";
+import { needsRebalance, rankBetween, reseedRun } from "../domain/ranking";
 import { nextOccurrence, type RecurrenceRule } from "../domain/recurrence";
 import { normalizeSchedule, ScheduleError } from "../domain/schedule";
 import type { RecurrencePreset } from "../types";
 import type { UpdateTaskInput } from "../schemas";
-import { canAssignTask, canDeleteTask, canEditTask, findVisibleTask, taskNotifiableRecipients, visibleTasksWhere } from "./access";
+import { canAssignTask, canDeleteTask, canEditTask, findVisibleTask, taskNotifiableRecipients, visibleTasksWhere, type TaskPolicyRecord } from "./access";
 import { createTask } from "./create";
 
 export { DomainError };
@@ -296,55 +297,22 @@ async function generateNextOccurrence(tx: Tx, taskId: string, actorId: string) {
   return result.id;
 }
 
-/**
- * Completing a task clears its own pending (undelivered) reminders — nobody needs reminding
- * about a task that's already done — and, for each task it blocks whose *other* blockers are
- * all already resolved, notifies that task's owner/assignees/watchers that it's now unblocked
- * (the one dependency event judged worth a notification: "you can start this now" is actionable,
- * "a dependency was added" is not). Reopening a task does not resurrect its cleared reminders —
- * the user re-adds one if they still want it (see docs/HANDOFF.md for the full policy table).
- */
-export async function setTaskCompletion(viewer: Viewer, taskId: string, done: boolean) {
-  const task = await loadEditable(viewer, taskId);
-  const isDone = task.status === "DONE";
-  if (done === isDone) return { nextOccurrenceId: null }; // idempotent toggle
-  const newVersion = task.version + 1;
-  const recipients = taskNotifiableRecipients(task, viewer.user.id);
-
-  return db.$transaction(async (tx) => {
-    await guardedUpdate(
-      tx,
-      task.id,
-      task.version,
-      done
-        ? { status: "DONE", completedAt: new Date(), completedById: viewer.user.id }
-        : { status: "TODO", completedAt: null, completedById: null },
-    );
-    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: done ? "completed" : "reopened" });
-    await notifyMany(tx, recipients, {
-      workspaceId: task.workspaceId,
-      actorId: viewer.user.id,
-      type: "TASK_STATUS_CHANGED",
-      entityType: "task",
-      entityId: task.id,
-      title: task.title,
-      deepLink: `/planner/all?task=${task.id}`,
-      dedupeKeyFor: (userId) => `task:${task.id}:v${newVersion}:status:${userId}`,
-    });
-
-    let nextOccurrenceId: string | null = null;
-    if (done) {
-      await tx.reminder.deleteMany({ where: { taskId: task.id, deliveredAt: null } });
-      nextOccurrenceId = await generateNextOccurrence(tx, task.id, viewer.user.id);
-      await notifyUnblockedByCompleting(tx, task.id, newVersion, viewer.user.id);
-    }
-    return { nextOccurrenceId };
-  });
+/** One notification candidate produced by a task mutation's core logic. The core never calls
+ * `notify`/`notifyMany` itself — callers do, so a single-task mutation (immediate, versioned
+ * dedupe key) and a bulk one (collapsed via `BulkNotifyAccumulator`) can share the exact same
+ * mutation logic while each keeping its own notification shape (Batch 4). */
+export interface NotifyEvent {
+  type: "TASK_STATUS_CHANGED" | "TASK_UNBLOCKED";
+  taskId: string;
+  title: string;
+  workspaceId: string | null;
+  recipients: string[];
 }
 
-/** For each task this one blocks, notify its stakeholders once none of its *other* blockers remain open. */
-async function notifyUnblockedByCompleting(tx: Tx, completedTaskId: string, completedTaskVersion: number, actorId: string) {
+/** For each task `completedTaskId` blocks, an unblock event once none of its *other* blockers remain open. */
+async function collectUnblockedEvents(tx: Tx, completedTaskId: string, actorId: string): Promise<NotifyEvent[]> {
   const blocks = await tx.taskDependency.findMany({ where: { blockingTaskId: completedTaskId }, select: { blockedTaskId: true } });
+  const events: NotifyEvent[] = [];
   for (const { blockedTaskId } of blocks) {
     const stillBlocked = await tx.taskDependency.count({
       where: { blockedTaskId, blockingTaskId: { not: completedTaskId }, blockingTask: { status: { notIn: ["DONE", "CANCELLED"] } } },
@@ -356,17 +324,64 @@ async function notifyUnblockedByCompleting(tx: Tx, completedTaskId: string, comp
     });
     if (!blockedTask) continue;
     const recipients = taskNotifiableRecipients(blockedTask, actorId);
-    await notifyMany(tx, recipients, {
-      workspaceId: blockedTask.workspaceId,
-      actorId,
-      type: "TASK_UNBLOCKED",
-      entityType: "task",
-      entityId: blockedTaskId,
-      title: blockedTask.title,
-      deepLink: `/planner/all?task=${blockedTaskId}`,
-      dedupeKeyFor: (userId) => `task:${completedTaskId}:v${completedTaskVersion}:unblocks:${blockedTaskId}:${userId}`,
-    });
+    if (recipients.length > 0) events.push({ type: "TASK_UNBLOCKED", taskId: blockedTaskId, title: blockedTask.title, workspaceId: blockedTask.workspaceId, recipients });
   }
+  return events;
+}
+
+/**
+ * The actual completion mutation, reused by both `setTaskCompletion` (single-task, below) and
+ * `bulkSetCompletion` (`server/bulk.ts`) — mutation + recurrence + reminder-clearing + unblock
+ * logic lives in exactly one place; only the notification *delivery* shape differs per caller.
+ * Completing a task clears its own pending (undelivered) reminders — nobody needs reminding about
+ * a task that's already done. Reopening a task does not resurrect its cleared reminders — the
+ * user re-adds one if they still want it (see docs/HANDOFF.md for the full policy table).
+ */
+export async function completeTaskCore(tx: Tx, viewer: Viewer, task: TaskPolicyRecord, done: boolean): Promise<{ nextOccurrenceId: string | null; events: NotifyEvent[] }> {
+  const isDone = task.status === "DONE";
+  if (done === isDone) return { nextOccurrenceId: null, events: [] }; // idempotent toggle
+
+  await guardedUpdate(
+    tx,
+    task.id,
+    task.version,
+    done ? { status: "DONE", completedAt: new Date(), completedById: viewer.user.id } : { status: "TODO", completedAt: null, completedById: null },
+  );
+  await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: done ? "completed" : "reopened" });
+
+  const events: NotifyEvent[] = [];
+  const recipients = taskNotifiableRecipients(task, viewer.user.id);
+  if (recipients.length > 0) events.push({ type: "TASK_STATUS_CHANGED", taskId: task.id, title: task.title, workspaceId: task.workspaceId, recipients });
+
+  let nextOccurrenceId: string | null = null;
+  if (done) {
+    await tx.reminder.deleteMany({ where: { taskId: task.id, deliveredAt: null } });
+    nextOccurrenceId = await generateNextOccurrence(tx, task.id, viewer.user.id);
+    events.push(...(await collectUnblockedEvents(tx, task.id, viewer.user.id)));
+  }
+  return { nextOccurrenceId, events };
+}
+
+export async function setTaskCompletion(viewer: Viewer, taskId: string, done: boolean) {
+  const task = await loadEditable(viewer, taskId);
+  const newVersion = task.version + 1;
+  return db.$transaction(async (tx) => {
+    const { nextOccurrenceId, events } = await completeTaskCore(tx, viewer, task, done);
+    for (const e of events) {
+      await notifyMany(tx, e.recipients, {
+        workspaceId: e.workspaceId,
+        actorId: viewer.user.id,
+        type: e.type,
+        entityType: "task",
+        entityId: e.taskId,
+        title: e.title,
+        deepLink: `/planner/all?task=${e.taskId}`,
+        dedupeKeyFor: (userId) =>
+          e.type === "TASK_STATUS_CHANGED" ? `task:${task.id}:v${newVersion}:status:${userId}` : `task:${task.id}:v${newVersion}:unblocks:${e.taskId}:${userId}`,
+      });
+    }
+    return { nextOccurrenceId };
+  });
 }
 
 const PRESET_RULES: Record<Exclude<RecurrencePreset, "none">, (anchor: CalendarDate) => Pick<RecurrenceRule, "frequency" | "byWeekday" | "byMonthDay">> = {
@@ -594,6 +609,80 @@ export async function createSubtask(viewer: Viewer, parentTaskId: string, title:
     }
     return result;
   });
+}
+
+// ───────────────────────── Ordering (drag & drop) ─────────────────────────
+
+const siblingSelect = { id: true, sortOrder: true, createdAt: true } as const;
+/** Bound on a rebalance's blast radius: at most this many siblings on each side of the drop point
+ * are ever re-seeded — never the whole list (approved adjustment, Batch 4). */
+const NEIGHBORHOOD = 10;
+
+/** The collection a reorder is scoped to: siblings under the same parent (subtasks), or the
+ * dragged task's own personal/workspace bucket (top-level tasks) — mirrors how `queries.ts`
+ * already scopes `sortOrder`-ordered views, so a reorder never touches another user's rows. */
+function orderingScope(task: Pick<TaskPolicyRecord, "scope" | "workspaceId" | "ownerId" | "parentId">): Prisma.TaskWhereInput {
+  if (task.parentId) return { parentId: task.parentId };
+  return task.scope === "PERSONAL" ? { scope: "PERSONAL", ownerId: task.ownerId, parentId: null } : { scope: "WORKSPACE", workspaceId: task.workspaceId, parentId: null };
+}
+
+/** Bounded neighborhood around the drop point, in current sortOrder — never the full collection. */
+async function fetchNeighborhood(tx: Tx, scope: Prisma.TaskWhereInput, excludeId: string, beforeId: string | null, afterId: string | null) {
+  const where: Prisma.TaskWhereInput = { AND: [scope, { deletedAt: null, id: { not: excludeId } }] };
+  const orderBy: Prisma.TaskOrderByWithRelationInput[] = [{ sortOrder: "asc" }, { createdAt: "desc" }];
+  const [forward, backward] = await Promise.all([
+    afterId ? tx.task.findMany({ where, orderBy, cursor: { id: afterId }, take: NEIGHBORHOOD, select: siblingSelect }) : Promise.resolve([]),
+    beforeId ? tx.task.findMany({ where, orderBy, cursor: { id: beforeId }, take: -NEIGHBORHOOD, select: siblingSelect }) : Promise.resolve([]),
+  ]);
+  const byId = new Map([...backward, ...forward].map((r) => [r.id, r]));
+  // Matches the real view order (`queries.ts`'s `viewOrder`): sortOrder asc, createdAt desc as the
+  // tiebreak. Without the tiebreak, a merge of two separately-fetched windows isn't guaranteed to
+  // reproduce the order the user was actually looking at when several siblings share a sortOrder.
+  return [...byId.values()].sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt.getTime() - a.createdAt.getTime());
+}
+
+/**
+ * Moves one task to sit between `beforeId` and `afterId` (either may be null at a list edge).
+ * Entirely server-side, inside one transaction, per the approved adjustment: the client only ever
+ * supplies the two visible neighbor ids from its own optimistic reorder, never a computed rank. If
+ * the neighbors' gap is too small to insert into cleanly (including the common case where several
+ * siblings still share the Float column's default of 0), only the bounded neighborhood around the
+ * drop point is reseeded with fresh spaced values first — never the whole collection.
+ */
+async function reorderWithinScope(viewer: Viewer, taskId: string, beforeId: string | null, afterId: string | null) {
+  const task = await loadEditable(viewer, taskId);
+  await db.$transaction(async (tx) => {
+    const scope = orderingScope(task);
+    const [before, after] = await Promise.all([
+      beforeId ? tx.task.findFirst({ where: { AND: [scope, { id: beforeId }] }, select: siblingSelect }) : null,
+      afterId ? tx.task.findFirst({ where: { AND: [scope, { id: afterId }] }, select: siblingSelect }) : null,
+    ]);
+    let beforeRank = before?.sortOrder ?? null;
+    let afterRank = after?.sortOrder ?? null;
+
+    if (needsRebalance(beforeRank, afterRank)) {
+      const neighborhood = await fetchNeighborhood(tx, scope, task.id, beforeId, afterId);
+      const seeded = reseedRun(neighborhood.length);
+      await Promise.all(neighborhood.map((row, i) => tx.task.update({ where: { id: row.id }, data: { sortOrder: seeded[i] } })));
+      const dropIndex = afterId ? neighborhood.findIndex((r) => r.id === afterId) : neighborhood.length;
+      beforeRank = dropIndex > 0 ? seeded[dropIndex - 1] : null;
+      afterRank = dropIndex >= 0 && dropIndex < neighborhood.length ? seeded[dropIndex] : null;
+    }
+
+    const sortOrder = rankBetween(beforeRank, afterRank);
+    await guardedUpdate(tx, task.id, task.version, { sortOrder });
+    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "reordered" });
+  });
+}
+
+/**
+ * Reorders a task among its siblings: under the same parent for a subtask, or within its own
+ * personal/workspace top-level list otherwise (inbox/someday/all/project — the only views
+ * `queries.ts`'s `viewOrder` sorts by `sortOrder`; `orderingScope` picks the right bucket from the
+ * task itself, so one function covers both). No notification: reordering isn't watcher-notable.
+ */
+export async function reorderTask(viewer: Viewer, taskId: string, position: { beforeId: string | null; afterId: string | null }) {
+  await reorderWithinScope(viewer, taskId, position.beforeId, position.afterId);
 }
 
 // ───────────────────────── Labels ─────────────────────────

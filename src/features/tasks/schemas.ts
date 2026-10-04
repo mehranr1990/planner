@@ -78,3 +78,21 @@ export const createSubtaskSchema = z.object({
   parentTaskId: z.cuid(),
   title: z.string().trim().min(1, "titleRequired").max(500),
 });
+
+// ───────────────────────── Ordering & bulk actions (Batch 4) ─────────────────────────
+
+export const reorderTaskSchema = z.object({
+  taskId: z.cuid(),
+  beforeId: z.cuid().nullable(),
+  afterId: z.cuid().nullable(),
+});
+
+const taskIdsSchema = z.array(z.cuid()).min(1).max(200);
+
+export const bulkSetCompletionSchema = z.object({ taskIds: taskIdsSchema, done: z.boolean() });
+export const bulkSetPrioritySchema = z.object({ taskIds: taskIdsSchema, priority: prioritySchema });
+export const bulkSetDueDateSchema = z.object({ taskIds: taskIdsSchema, dueOn: calendarDateSchema.nullable(), dueTime: minutesSchema.nullable() });
+export const bulkLabelsSchema = z.object({ taskIds: taskIdsSchema, labelIds: z.array(z.cuid()).max(50) });
+export const bulkAssigneesSchema = z.object({ taskIds: taskIdsSchema, userIds: z.array(z.cuid()).max(50) });
+export const bulkMoveToProjectSchema = z.object({ taskIds: taskIdsSchema, projectId: z.cuid().nullable() });
+export const bulkDeleteSchema = z.object({ taskIds: taskIdsSchema });

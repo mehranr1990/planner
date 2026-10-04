@@ -87,14 +87,14 @@ Legend:
 | PLN-08 | All tasks | /planner/all | | | P | | ✅ | I | 2 |
 | PLN-09 | Personal + assigned workspace work together; space filter | ?scope= | `parseScopeFilter` | rel | P | | ✅ | I, E | 2 |
 | PLN-10 | Quick natural-language creation | QuickAdd | parser + server re-parse | tasks.create | ✅ | §96 | ✅ | U, I, E | 2 |
-| PLN-11 | Drag & drop reorder | lists | sortOrder fractional | edit | long-press / "Move to" | §96 | ⬜ | — | 3 |
+| PLN-11 | Drag & drop reorder | lists (Inbox/Someday/All, subtasks) | `Task.sortOrder` fractional, `reorderTask`, bounded rebalance (`domain/ranking.ts`) | edit | long-press / "Move to" | §96 | ✅ | U, I, E | 3 (batch 4) |
 | PLN-12 | Drag to reschedule | date groups | updateTask | edit | "Move to" sheet | §96 | ⬜ | — | 3 |
 | PLN-13 | Prioritise inline | row menu | updateTask | edit | S | §96 | 🟡 sheet only | — | 3 |
 | PLN-14 | Grouping control | FilterBar | query param | — | S | §96 | ⬜ | — | 3 |
 | PLN-15 | Sorting control | FilterBar | | — | S | | ⬜ | — | 3 |
-| PLN-16 | Filtering (project, label, priority, assignee) | FilterBar | | — | S | | ⬜ | — | 3 |
-| PLN-17 | Saved filters/views | pills | SavedView | own | P | | 🗄 | — | 3 |
-| PLN-18 | Bulk actions | bulk bar | batched service calls in tx | edit per item | bottom bar | | ⬜ | — | 3 |
+| PLN-16 | Filtering (assignee, creator, status, priority, label, due date, overdue, project, completed, delegated, watched — area dropped, see below) | `FilterBar`, URL-persisted | `features/tasks/server/filters.ts` (`parsePlannerFilters`/`plannerFiltersWhere`/`resolveOwnership`) | — (narrows an already-visibility-scoped query) | compact popover + chips | | ✅ | I, E | 3 (batch 4) |
+| PLN-17 | Saved filters/views | pills | SavedView | own | P | | 🗄 still unused — batch 4 satisfied "filters survive navigation" via URL state instead, decided with the product owner | — | 3 |
+| PLN-18 | Bulk actions | bulk toolbar | `features/tasks/server/bulk.ts`, batched service calls in tx, best-effort/partial | edit/delete per item | compact contextual toolbar | | ✅ | I, E | 3 (batch 4) |
 | PLN-19 | Pagination beyond 200 | lists | cursor | — | — | — | 🟡 truncation notice | — | 3 |
 | PLN-20 | Delegated/Waiting view | /planner/delegated | owner ∧ assignees ≠ me | rel | P | | ✅ | I | 3 (batch 1) |
 
@@ -116,7 +116,7 @@ Legend:
 | TSK-12 | Board/list (section), area | sheet | ProjectSection, Area | edit | S | | 🗄 | — | 3 |
 | TSK-13 | Labels/tags (task-level) | LabelPicker | Label, `features/labels/*`, `setTaskLabels` | tasks.create (manage: owner/`workspace.manage`) | S | | ✅ | I | 3 (batch 1) |
 | TSK-14 | Custom fields on tasks | sheet | CustomField | edit | S | | ⬜ | — | 8 |
-| TSK-15 | Subtasks (create/complete/delete) | sheet | parentId, `createSubtask` (one level deep) | edit | S | | 🟡 reorder → batch 4 (DnD) | I | 3 (batch 1) |
+| TSK-15 | Subtasks (create/complete/delete) | sheet | parentId, `createSubtask` (one level deep) | edit | S | | 🟡 reorder: `reorderTask` service-ready + integration-tested (batch 4, reuses the same function as top-level lists via `orderingScope`), but **no drag-handle UI in the sheet's subtask list yet** — carry the UI wiring to a later batch | I | 3 (batch 1) |
 | TSK-16 | Checklist | sheet | ChecklistItem | edit | S | | ✅ | E | 2 |
 | TSK-17 | Dependencies (cycle-safe) | sheet (`DependencyPicker`) | BFS + CHECK, `addDependency`/`removeDependency` | edit | S | | ✅ sheet only, no canvas | U, I | 3 (batch 2) |
 | TSK-18 | Blockers display | sheet | `blockedBy`/`blocking` on `TaskDetail`, blocked chip | rel | S | | ✅ | I | 3 (batch 2) |

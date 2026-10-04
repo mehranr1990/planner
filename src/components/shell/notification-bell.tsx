@@ -23,6 +23,11 @@ const KNOWN_TYPES = new Set([
   "TASK_UNBLOCKED",
   "INVITATION",
   "WORKSPACE_ROLE_CHANGED",
+  // Batch 4: one notification standing in for several of the same event (see server/notify-bulk.ts).
+  "TASK_STATUS_CHANGED_BULK",
+  "TASK_DUE_DATE_CHANGED_BULK",
+  "TASK_ASSIGNED_BULK",
+  "TASK_UNBLOCKED_BULK",
 ] as const);
 type KnownType = typeof KNOWN_TYPES extends Set<infer K> ? K : never;
 
@@ -93,7 +98,9 @@ export function NotificationBell({ notifications, unreadCount, timezone }: { not
                     <span aria-hidden className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", n.readAt ? "bg-transparent" : "bg-accent-blue")} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate" dir="auto">
-                        {t(`item.${key}`, { title: n.title, actor: n.actor?.name ?? "" })}
+                        {key.endsWith("_BULK")
+                          ? t(`item.${key}`, { count: Number(n.title) || 0, actor: n.actor?.name ?? "" })
+                          : t(`item.${key}`, { title: n.title, actor: n.actor?.name ?? "" })}
                       </span>
                       <time dateTime={n.createdAt} className="text-[11.5px] text-foreground-subtle" data-volatile>
                         {f.dateTime(new Date(n.createdAt), timezone)}

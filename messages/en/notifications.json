@@ -13,6 +13,10 @@
     "TASK_UNBLOCKED": "{title} is no longer blocked",
     "INVITATION": "{actor} accepted your invitation to {title}",
     "WORKSPACE_ROLE_CHANGED": "Your role is now {title}",
+    "TASK_STATUS_CHANGED_BULK": "{actor} updated the status of {count, plural, one {# task} other {# tasks}}",
+    "TASK_DUE_DATE_CHANGED_BULK": "{actor} changed the due date of {count, plural, one {# task} other {# tasks}}",
+    "TASK_ASSIGNED_BULK": "{actor} assigned you to {count, plural, one {# task} other {# tasks}}",
+    "TASK_UNBLOCKED_BULK": "{count, plural, one {# task} other {# tasks}} no longer blocked",
     "other": "Update: {title}"
   }
 }

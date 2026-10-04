@@ -8,6 +8,7 @@ import { listMembers } from "@/features/workspace/server/queries";
 import type { PlannerScopeFilter, PlannerView } from "../domain/planner-views";
 import { OPEN_STATUSES, type RecurrenceDisplay, type TaskDetail, type TaskListItem } from "../types";
 import { canAssignTask, canDeleteTask, canEditTask, findVisibleTask, visibleTasksWhere } from "./access";
+import { ownershipWhere, plannerFiltersWhere, resolveOwnership, type PlannerFilters } from "./filters";
 
 /** Workspace members selectable as assignees for the open task's sheet; empty for personal tasks. */
 export async function getAssignableMembers(viewer: Viewer, detail: TaskDetail | null) {
@@ -79,22 +80,6 @@ function toListItem(viewer: Viewer, row: ListRow, now = new Date()): TaskListIte
   };
 }
 
-/** "My work": assigned to me, or owned by me and not delegated to anyone else. */
-function mineWhere(viewer: Viewer): Prisma.TaskWhereInput {
-  const me = viewer.user.id;
-  return { OR: [{ assignees: { some: { userId: me } } }, { ownerId: me, assignees: { none: {} } }] };
-}
-
-/** The complement of "mine" for delegated work: I own it, I handed it to someone else, I'm not one of them. */
-function delegatedWhere(viewer: Viewer): Prisma.TaskWhereInput {
-  const me = viewer.user.id;
-  return { ownerId: me, assignees: { some: {} }, NOT: { assignees: { some: { userId: me } } } };
-}
-
-function ownershipWhere(viewer: Viewer, view: PlannerView): Prisma.TaskWhereInput {
-  return view === "delegated" ? delegatedWhere(viewer) : mineWhere(viewer);
-}
-
 function scopeWhere(filter: PlannerScopeFilter): Prisma.TaskWhereInput {
   switch (filter.kind) {
     case "all":
@@ -139,11 +124,22 @@ function viewOrder(view: PlannerView): Prisma.TaskOrderByWithRelationInput[] {
 
 const VIEW_LIMIT = 200;
 
-export async function getPlannerTasks(viewer: Viewer, view: PlannerView, filter: PlannerScopeFilter) {
+/** `filters` (advanced filters, Batch 4) default to none, so every existing call site and every
+ * view's semantics/speed are unchanged unless the caller actually has an active filter. */
+export async function getPlannerTasks(viewer: Viewer, view: PlannerView, filter: PlannerScopeFilter, filters: PlannerFilters = {}) {
   const now = new Date();
   const today = todayIn(viewer.user.timezone, now);
   const rows = await db.task.findMany({
-    where: { AND: [visibleTasksWhere(viewer), ownershipWhere(viewer, view), scopeWhere(filter), viewWhere(view, today, now), { parentId: null }] },
+    where: {
+      AND: [
+        visibleTasksWhere(viewer),
+        resolveOwnership(viewer, view, filters),
+        scopeWhere(filter),
+        viewWhere(view, today, now),
+        { parentId: null },
+        ...plannerFiltersWhere(viewer, filters),
+      ],
+    },
     orderBy: viewOrder(view),
     select: listSelect,
     take: VIEW_LIMIT + 1,

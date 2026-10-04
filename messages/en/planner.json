@@ -77,5 +77,36 @@
     "someday": "park it without a date",
     "quotes": "Wrap words in <code>\"quotes\"</code> to keep them literal",
     "language": "Date, time and priority keywords are recognised in English."
+  },
+  "filters": {
+    "trigger": "Filters",
+    "section": {
+      "priority": "Priority",
+      "status": "Status",
+      "label": "Label",
+      "assignee": "Assignee",
+      "creator": "Created by",
+      "project": "Project",
+      "due": "Due date"
+    },
+    "priority": { "NONE": "None", "LOW": "Low", "MEDIUM": "Medium", "HIGH": "High", "URGENT": "Urgent" },
+    "status": { "TODO": "To do", "IN_PROGRESS": "In progress", "BLOCKED": "Blocked", "DONE": "Done", "CANCELLED": "Cancelled" },
+    "dueAfter": "From date",
+    "dueBefore": "To date",
+    "toggle": { "overdue": "Overdue", "delegated": "Delegated", "watched": "Watched", "incomplete": "Incomplete" },
+    "chip": {
+      "assignee": "Assignee: {name}",
+      "creator": "Created by: {name}",
+      "label": "Label: {name}",
+      "project": "Project: {name}",
+      "priority": "Priority: {value}",
+      "status": "Status: {value}",
+      "overdue": "Overdue",
+      "completedOnly": "Completed only",
+      "incomplete": "Incomplete",
+      "delegated": "Delegated",
+      "watched": "Watched"
+    },
+    "clearAll": "Clear all filters"
   }
 }

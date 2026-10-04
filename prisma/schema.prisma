@@ -116,6 +116,13 @@ enum NotificationType {
   TASK_UNBLOCKED
   INVITATION
   WORKSPACE_ROLE_CHANGED
+  // Batch 4: emitted ONLY by src/features/tasks/server/bulk.ts, in place of several individual
+  // notifications of the matching non-_BULK type, when one bulk action would otherwise notify the
+  // same recipient more than once for the same event. Single-task mutations never emit these.
+  TASK_STATUS_CHANGED_BULK
+  TASK_DUE_DATE_CHANGED_BULK
+  TASK_ASSIGNED_BULK
+  TASK_UNBLOCKED_BULK
 }
 
 // ─────────────────────────── Identity ───────────────────────────
@@ -486,6 +493,8 @@ model Task {
   @@unique([createdById, clientMutationId])
   @@index([ownerId, scope, status, dueOn])
   @@index([workspaceId, status, dueOn])
+  @@index([ownerId, scope, sortOrder]) // manual ordering: inbox/someday/all (Batch 4)
+  @@index([workspaceId, sortOrder]) // manual ordering: inbox/someday/all (Batch 4)
   @@index([projectId, sectionId, sortOrder])
   @@index([parentId])
   @@map("tasks")
@@ -729,6 +738,9 @@ model Notification {
   entityId    String           @map("entity_id")
   title       String
   deepLink    String           @map("deep_link") // app-relative path only
+  // Structured metadata. Batch 4 bulk notifications store { count, taskIds } here (taskIds capped,
+  // see bulk.ts); single-task notifications leave this at its default.
+  data        Json             @default("{}")
   dedupeKey   String?          @unique @map("dedupe_key")
   readAt      DateTime?        @map("read_at") @db.Timestamptz(3)
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)

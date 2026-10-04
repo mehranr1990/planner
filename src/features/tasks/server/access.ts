@@ -75,6 +75,13 @@ export async function findVisibleTask(viewer: Viewer, taskId: string): Promise<T
   return db.task.findFirst({ where: { AND: [{ id: taskId }, visibleTasksWhere(viewer)] }, select: policySelect });
 }
 
+/** Batched variant of `findVisibleTask` for bulk operations (Batch 4) — only the ids the viewer
+ * can actually see come back; a bogus/inaccessible id in the request is simply absent, never an error. */
+export async function findVisibleTasks(viewer: Viewer, taskIds: string[]): Promise<TaskPolicyRecord[]> {
+  if (taskIds.length === 0) return [];
+  return db.task.findMany({ where: { AND: [{ id: { in: taskIds } }, visibleTasksWhere(viewer)] }, select: policySelect });
+}
+
 function projectRole(task: TaskPolicyRecord, userId: string) {
   return task.project?.members.find((m) => m.userId === userId)?.role ?? null;
 }

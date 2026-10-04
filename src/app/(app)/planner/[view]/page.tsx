@@ -8,14 +8,18 @@ import { getFormat } from "@/i18n/get-format";
 import { cn } from "@/lib/cn";
 import { listProjectOptions } from "@/features/projects/server/queries";
 import { getMentionCandidates, listTaskComments } from "@/features/collaboration/server/queries";
+import { listLabels } from "@/features/labels/server/queries";
 import { getMyReminder } from "@/features/reminders/server/queries";
+import { FilterBar } from "@/features/tasks/components/filter-bar";
 import { QuickAdd } from "@/features/tasks/components/quick-add";
-import { TaskList } from "@/features/tasks/components/task-list";
+import { TaskListWithSelection } from "@/features/tasks/components/task-list-with-selection";
 import { TaskSheet } from "@/features/tasks/components/task-sheet";
 import { UndoDeleteBanner } from "@/features/tasks/components/undo-delete-banner";
 import { isPlannerView, PLANNER_VIEWS, type PlannerScopeFilter } from "@/features/tasks/domain/planner-views";
 import { creatableContexts, defaultCreateContext, parseScopeFilter } from "@/features/tasks/server/contexts";
+import { parsePlannerFilters } from "@/features/tasks/server/filters";
 import { getAssignableMembers, getPlannerCounts, getPlannerTasks, getTaskDetail, getTaskLabelOptions } from "@/features/tasks/server/queries";
+import { listMembers } from "@/features/workspace/server/queries";
 import { getViewer } from "@/server/context";
 
 export async function generateMetadata({ params }: PageProps<"/planner/[view]">): Promise<Metadata> {
@@ -47,14 +51,21 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
     { Icon: Maximize2, label: t("panelActions.expand") },
   ];
   const filter = parseScopeFilter(viewer, sp.scope);
+  const filters = parsePlannerFilters(sp);
   const taskId = typeof sp.task === "string" ? sp.task : null;
   const deletedId = typeof sp.deleted === "string" ? sp.deleted : null;
+  // Label/assignee filter option lists only make sense for a specific scope (labels are literally
+  // scoped PERSONAL/WORKSPACE; workspace membership only exists for a workspace) — same rule
+  // `task-sheet.tsx` already applies when editing a single task's labels/assignees.
+  const filterLabelScope = filter.kind === "workspace" ? ({ scope: "WORKSPACE", workspaceId: filter.workspaceId } as const) : filter.kind === "personal" ? ({ scope: "PERSONAL" } as const) : null;
 
-  const [{ today, tasks, truncated }, counts, detail, projects] = await Promise.all([
-    getPlannerTasks(viewer, view, filter),
+  const [{ today, tasks, truncated }, counts, detail, projectOptions, filterLabelOptions, filterMembers] = await Promise.all([
+    getPlannerTasks(viewer, view, filter, filters),
     getPlannerCounts(viewer, filter),
     taskId ? getTaskDetail(viewer, taskId) : null,
-    taskId ? listProjectOptions(viewer) : [],
+    listProjectOptions(viewer),
+    filterLabelScope ? listLabels(viewer, filterLabelScope) : Promise.resolve([]),
+    filter.kind === "workspace" ? listMembers(viewer, filter.workspaceId) : Promise.resolve(null),
   ]);
   const [members, labelOptions, comments, mentionCandidates, reminder] = await Promise.all([
     getAssignableMembers(viewer, detail),
@@ -159,13 +170,18 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
               />
             </div>
           )}
-          <TaskList
+          <FilterBar memberOptions={(filterMembers ?? []).map((m) => ({ id: m.user.id, name: m.user.name }))} labelOptions={filterLabelOptions} projectOptions={projectOptions} />
+          <TaskListWithSelection
             view={view}
             tasks={tasks}
             today={today}
             timezone={viewer.user.timezone}
             showContext={filter.kind === "all" && viewer.workspaces.length > 0}
             empty={{ title: t(`views.${view}.emptyTitle`), hint: t(`views.${view}.emptyHint`) }}
+            orderable={view === "inbox" || view === "someday" || view === "all"}
+            labelOptions={filterLabelOptions}
+            memberOptions={(filterMembers ?? []).map((m) => ({ id: m.user.id, name: m.user.name }))}
+            projectOptions={projectOptions}
           />
           {truncated && <p className="mt-4 px-3 text-[12.5px] text-foreground-muted">{t("truncated", { limit: 200 })}</p>}
         </Panel>
@@ -210,7 +226,7 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
         <TaskSheet
           key={detail.id}
           task={detail}
-          projects={projects}
+          projects={projectOptions}
           members={members}
           labelOptions={labelOptions}
           comments={comments}

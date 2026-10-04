@@ -1,5 +1,5 @@
 import "server-only";
-import type { NotificationType } from "@/generated/prisma/client";
+import type { NotificationType, Prisma } from "@/generated/prisma/client";
 import { isUniqueViolation, type Tx } from "@/server/db";
 
 // §91 shared service: every notification write goes through this one function, so dedupe_key
@@ -15,6 +15,8 @@ export interface NotifyInput {
   entityId: string;
   title: string;
   deepLink: string;
+  /** Structured metadata (Batch 4: bulk notifications store `{count, taskIds}` here). */
+  data?: Prisma.InputJsonValue;
   /** Unique per (event, recipient); a repeat call with the same key is a no-op. */
   dedupeKey: string;
 }
@@ -31,6 +33,7 @@ export async function notify(tx: Tx, input: NotifyInput): Promise<void> {
         entityId: input.entityId,
         title: input.title,
         deepLink: input.deepLink,
+        data: input.data ?? {},
         dedupeKey: input.dedupeKey,
       },
     });

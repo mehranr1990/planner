@@ -77,5 +77,36 @@
     "someday": "کنار گذاشتن بدون تاریخ",
     "quotes": "واژه‌ها را میان <code>\"گیومه\"</code> بگذارید تا همان‌طور بمانند",
     "language": "کلیدواژه‌های تاریخ، ساعت و اولویت فعلاً فقط به انگلیسی شناخته می‌شوند."
+  },
+  "filters": {
+    "trigger": "پالایه‌ها",
+    "section": {
+      "priority": "اولویت",
+      "status": "وضعیت",
+      "label": "برچسب",
+      "assignee": "مسئول",
+      "creator": "سازنده",
+      "project": "پروژه",
+      "due": "تاریخ موعد"
+    },
+    "priority": { "NONE": "هیچ", "LOW": "کم", "MEDIUM": "متوسط", "HIGH": "زیاد", "URGENT": "فوری" },
+    "status": { "TODO": "در انتظار", "IN_PROGRESS": "در حال انجام", "BLOCKED": "مسدود", "DONE": "انجام‌شده", "CANCELLED": "لغوشده" },
+    "dueAfter": "از تاریخ",
+    "dueBefore": "تا تاریخ",
+    "toggle": { "overdue": "عقب‌افتاده", "delegated": "واگذارشده", "watched": "دنبال‌شده", "incomplete": "انجام‌نشده" },
+    "chip": {
+      "assignee": "مسئول: {name}",
+      "creator": "سازنده: {name}",
+      "label": "برچسب: {name}",
+      "project": "پروژه: {name}",
+      "priority": "اولویت: {value}",
+      "status": "وضعیت: {value}",
+      "overdue": "عقب‌افتاده",
+      "completedOnly": "فقط انجام‌شده",
+      "incomplete": "انجام‌نشده",
+      "delegated": "واگذارشده",
+      "watched": "دنبال‌شده"
+    },
+    "clearAll": "پاک‌کردن همهٔ پالایه‌ها"
   }
 }

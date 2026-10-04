@@ -1,6 +1,8 @@
 "use client";
 
-import { Check, CheckSquare, Flag, Repeat, Workflow } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Check, CheckSquare, Flag, GripVertical, Repeat, Workflow } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -20,11 +22,17 @@ export function TaskRow({
   today,
   timezone,
   showContext,
+  selection,
+  sortable,
 }: {
   task: TaskListItem;
   today: CalendarDate;
   timezone: string;
   showContext: boolean;
+  /** Bulk-selection checkbox (Batch 4); omitted outside selection mode. */
+  selection?: { checked: boolean; onToggle: () => void };
+  /** Manual drag-to-reorder (Batch 4); only passed in sortOrder-governed views/lists. */
+  sortable?: boolean;
 }) {
   const t = useTranslations("tasks");
   const f = useFormat();
@@ -33,6 +41,7 @@ export function TaskRow({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useOptimistic(task.status === "DONE");
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled: !sortable || !task.canEdit });
 
   const href = (() => {
     const next = new URLSearchParams(params);
@@ -53,7 +62,34 @@ export function TaskRow({
   const dueLabel = task.dueOn ? f.relativeDay(task.dueOn, today) : null;
 
   return (
-    <li className="group relative flex items-start gap-3 rounded-[18px] px-3 py-3 transition-colors hover:bg-surface-elevated">
+    <li
+      ref={sortable ? setNodeRef : undefined}
+      style={sortable ? { transform: CSS.Transform.toString(transform), transition } : undefined}
+      className={cn(
+        "group relative flex items-start gap-3 rounded-[18px] px-3 py-3 transition-colors hover:bg-surface-elevated",
+        isDragging && "z-20 bg-surface-elevated opacity-90 shadow-overlay",
+      )}
+    >
+      {selection && (
+        <input
+          type="checkbox"
+          checked={selection.checked}
+          onChange={selection.onToggle}
+          aria-label={t("bulk.selectOne", { title: task.title })}
+          className="relative z-10 mt-1.5 size-3.5 shrink-0"
+        />
+      )}
+      {sortable && task.canEdit && (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label={t("reorder.handle", { title: task.title })}
+          className="relative z-10 mt-1 shrink-0 cursor-grab touch-none text-foreground-subtle opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical className="size-4" aria-hidden />
+        </button>
+      )}
       <button
         type="button"
         role="checkbox"

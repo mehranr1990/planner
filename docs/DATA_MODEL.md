@@ -30,7 +30,7 @@ Classification:
 | Membership | User ↔ workspace, base role, optional custom role, status, `is_external` (guest/external collaborator) | unique (workspace, user) | permissions |
 | Project | Status, health, priority, visibility, dates | scope CHECK; idx (workspace, status) | projects |
 | ProjectMember | LEAD/EDITOR/VIEWER | PK (project, user) | access rules (creator added as LEAD) |
-| Task | Task engine (§11). Scheduling shape in §4 | scope / schedule / start≤due / no-self-parent / estimate≥0 CHECKs; unique (series, occurrence_on), unique (created_by, client_mutation_id) | planner, projects |
+| Task | Task engine (§11). Scheduling shape in §4. `sort_order` (Float, existed since Phase 1/2 for project-list order) is now also the manual-ordering key for Inbox/Someday/All/subtasks (Phase 3 batch 4 drag & drop — `reorderTask`, fractional ranking with a bounded rebalance on collision, see `docs/HANDOFF.md` §2b) | scope / schedule / start≤due / no-self-parent / estimate≥0 CHECKs; unique (series, occurrence_on), unique (created_by, client_mutation_id); idx (owner, scope, sort_order), (workspace, sort_order) — added batch 4 for the now-heavier-use `sort_order` ordering queries | planner, projects |
 | ChecklistItem | Ordered checklist | idx (task, sort) | task sheet |
 | RecurrenceSeries | Recurrence rule | scope, interval≥1, max_count≥1 CHECKs | recurrence |
 | TaskDependency | blocking → blocked | PK pair; no-self CHECK; cycles rejected in domain | `DependencyPicker` (sheet), `addDependency`/`removeDependency` |
@@ -42,7 +42,7 @@ Classification:
 | WorkspaceRole | Custom role: name, base role, capabilities[] (owner-only capabilities stripped server-side) | unique (workspace, name) | `/settings/workspace/roles`, member-role assignment |
 | Team, TeamMember | Teams and their membership (LEAD/MEMBER) | PK (team, user) | `/team/teams` |
 | Invitation | Invite flow: hashed single-use token, 7-day expiry, `is_external`, `accepted_membership_id` | partial unique: one PENDING per (workspace, lower(email)) | `/team/invitations`, `/invite/[token]` |
-| Notification | In-app notification generation (`dedupe_key` unique, enforced by `notify()`/`notifyMany()`) | idx (recipient, read, created) | invitation accepted, role changed, assignment, @mention, comments, status/due-date changes, dependency-unblocked, reminders; UI: `NotificationBell` (shell) |
+| Notification | In-app notification generation (`dedupe_key` unique, enforced by `notify()`/`notifyMany()`). `data` (Json, default `{}`, added batch 4) carries structured metadata — bulk-aggregated notifications store `{count, taskIds}` (capped at 50 ids); single-task notifications leave it at its default | idx (recipient, read, created) | invitation accepted, role changed, assignment, @mention, comments, status/due-date changes, dependency-unblocked, reminders, **bulk-aggregated status/due-date/assignment/unblock (batch 4 — 4 additive `NotificationType` values, see `docs/HANDOFF.md` §2b)**; UI: `NotificationBell` (shell) |
 | PasswordResetToken | Hashed, single-use, expiring reset token | `token_hash` unique; idx user | `/forgot-password`, `/reset-password/[token]` |
 
 ## 3. SCHEMA-ONLY (migrated, not yet used by code)
@@ -50,11 +50,11 @@ Classification:
 | Model | Planned use | Phase |
 |---|---|---|
 | NotificationPreference | per category × channel preferences | 6 |
-| Area | life/work areas | 3 |
-| ProjectSection | lists/columns | 3 |
+| Area | life/work areas. Still schema-only after batch 4: a full-codebase audit found **zero creation/assignment UI anywhere** for it (no screen can set `Task.areaId`/`Project.areaId`), so batch 4 deliberately dropped "area" from its otherwise-full advanced-filter set rather than ship a picker with no options — revisit once an Area module ships | 3 |
+| ProjectSection | lists/columns — `sort_order` ready for Batch 5's board-column drag & drop (batch 4 shipped the general DnD pattern against `Task.sort_order`; board columns are the next consumer) | 3 |
 | TaskAssignee, TaskWatcher | assignment and watching UI. Assignees are already honoured in access rules | 3 |
 | Label, TaskLabel | labels (partial unique on lower(name) per owner/workspace) | 3 |
-| SavedView | saved planner/project views | 3 |
+| SavedView | saved planner/project views. Considered for batch 4's advanced filters, not used — URL-persisted filter state already satisfies "filters survive navigation/reload," so building saved presets was deferred rather than invented ahead of a concrete ask | 3 |
 
 ## 4. Task scheduling and recurrence (implemented rules)
 

@@ -152,5 +152,39 @@
     "reminder_removed": "<actor>{name}</actor> یادآوری را حذف کرد",
     "other": "<actor>{name}</actor> این کار را تغییر داد"
   },
-  "deletedBanner": "کار حذف شد"
+  "deletedBanner": "کار حذف شد",
+  "bulk": {
+    "selectAll": "انتخاب همه",
+    "selectedCount": "{count, plural, other {# مورد انتخاب‌شده}}",
+    "selectOne": "انتخاب «{title}»",
+    "actions": {
+      "complete": "انجام شد",
+      "reopen": "بازگشایی",
+      "priority": "اولویت",
+      "dueDate": "تاریخ موعد",
+      "clearDueDate": "پاک‌کردن تاریخ موعد",
+      "labels": "برچسب‌ها",
+      "labelsHint": "برای افزودن برچسب کلیک کنید، برای حذف −",
+      "addLabel": "افزودن برچسب «{name}»",
+      "removeLabel": "حذف برچسب «{name}»",
+      "assign": "واگذاری",
+      "addAssignee": "واگذاری به {name}",
+      "removeAssignee": "لغو واگذاری از {name}",
+      "move": "انتقال به پروژه",
+      "moveToNone": "بدون پروژه",
+      "delete": "حذف"
+    },
+    "priority": { "NONE": "هیچ", "LOW": "کم", "MEDIUM": "متوسط", "HIGH": "زیاد", "URGENT": "فوری" },
+    "confirmDelete": {
+      "title": "{count, plural, one {این کار حذف شود؟} other {# کار حذف شوند؟}}",
+      "reason": "کارهای حذف‌شده برای مدتی کوتاه از طریق واگرد قابل بازگردانی هستند."
+    },
+    "result": {
+      "partial": "{updated, number} مورد به‌روزرسانی شد · {skipped, number} مورد رد شد (بدون دسترسی)",
+      "all": "{updated, number} مورد به‌روزرسانی شد"
+    }
+  },
+  "reorder": {
+    "handle": "جابه‌جایی «{title}»"
+  }
 }
