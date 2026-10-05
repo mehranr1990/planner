@@ -124,11 +124,14 @@ whichever module is active, not as a second copy of the primary nav.
     page background (no card, no shadow).
   - **Sub-nav** (`SubNav`, left, below the header): a 76px icon rail scoped to the active module's
     own views/pages, shown only for modules that actually have sub-views — Planner's 8 views
-    (Inbox/Today/Upcoming/Overdue/Scheduled/Someday/Completed/All tasks), and, since Phase 3 batch 5,
-    an open Project's 4 tabs (Tasks/Board/Timeline/Milestones, active one derived from the route).
-    Renders nothing for modules without sub-views rather than inventing placeholder icons (§98). This
-    is additive to, not a replacement for, a module's own in-panel navigation (e.g. Planner's pill
-    row and `ProjectTabs` both stay) — matching Planner's existing precedent of having both.
+    (Inbox/Today/Upcoming/Overdue/Scheduled/Someday/Completed/All tasks), an open Project's 4 tabs
+    (Tasks/Board/Timeline/Milestones, since Phase 3 batch 5), and Team's 4 sections
+    (Members/Invitations/Teams/Guests, active one derived from the route). Renders nothing for
+    modules without sub-views rather than inventing placeholder icons (§98). This is additive to,
+    not a replacement for, a module's own in-panel navigation (e.g. Planner's pill row, `ProjectTabs`,
+    and `TeamNav` all stay) — matching Planner's existing precedent of having both. `TeamNav`'s own
+    pill row is centred, following §14's panel-header rule (pills centred between the title and any
+    actions).
   - Below the header, each page renders its own compact `PageTitle`.
 - **Tablet/Mobile <1024px:** the centre nav and `SubNav` both hide; the header keeps logo + context
   switcher (start) and actions (end) only. Primary navigation moves to `MobileTabBar`: a floating

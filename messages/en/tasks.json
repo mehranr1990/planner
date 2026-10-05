@@ -155,7 +155,17 @@
     "reminder_created": "<actor>{name}</actor> set a reminder",
     "reminder_updated": "<actor>{name}</actor> updated a reminder",
     "reminder_removed": "<actor>{name}</actor> removed a reminder",
+    "attachment_added": "<actor>{name}</actor> added a file",
+    "attachment_removed": "<actor>{name}</actor> removed a file",
     "other": "<actor>{name}</actor> changed this task"
+  },
+  "attachments": {
+    "heading": "Attachments",
+    "empty": "No files yet",
+    "upload": "Add a file",
+    "uploading": "Uploading…",
+    "download": "Download “{name}”",
+    "delete": "Remove “{name}”"
   },
   "deletedBanner": "Task deleted",
   "bulk": {

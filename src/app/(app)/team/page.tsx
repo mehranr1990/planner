@@ -59,7 +59,16 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
         ) : (
           <ul className="flex flex-col">
             {members.map((m, i) => (
-              <li key={m.user.id} className="animate-rise flex items-center gap-4 rounded-[18px] px-3 py-3 hover:bg-surface-elevated" style={{ "--i": i } as React.CSSProperties}>
+              <li
+                key={m.user.id}
+                // `animate-rise` gives every row its own stacking context (its keyframes touch
+                // opacity/transform), which traps the MemberActions dropdown's z-40 inside that
+                // row — a later sibling row otherwise paints over it regardless of that nested
+                // z-index. `relative` + a z-index bump while its own <details> is open lets the
+                // row (and everything nested inside it) outrank its siblings for real.
+                className="animate-rise relative flex items-center gap-4 rounded-[18px] px-3 py-3 hover:bg-surface-elevated has-[details[open]]:z-10"
+                style={{ "--i": i } as React.CSSProperties}
+              >
                 <Avatar person={m.user} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14.5px] font-medium">
@@ -72,7 +81,15 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                   </p>
                 </div>
                 {m.status === "ACTIVE" && <MemberRoleSelect workspaceId={ws.id} userId={m.user.id} role={m.role} options={m.assignableRoles} name={m.user.name} />}
-                <MemberActions workspaceId={ws.id} userId={m.user.id} name={m.user.name} status={m.status} canRemove={m.canRemove} canDeactivate={m.canDeactivate} />
+                <MemberActions
+                  workspaceId={ws.id}
+                  userId={m.user.id}
+                  name={m.user.name}
+                  status={m.status}
+                  canRemove={m.canRemove}
+                  canDeactivate={m.canDeactivate}
+                  canTransferOwnershipTo={m.canTransferOwnershipTo}
+                />
               </li>
             ))}
           </ul>

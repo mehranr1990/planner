@@ -96,6 +96,65 @@ export async function changeMemberRole(viewer: Viewer, input: { workspaceId: str
   });
 }
 
+/**
+ * Ownership transfer — a dedicated privileged operation, not a `changeMemberRole` call repeated
+ * twice: both role updates (new owner ← OWNER, previous owner ← ADMIN) happen inside one
+ * transaction, so the workspace is never briefly left with zero or two owners even if something
+ * fails partway, and no last-owner *count* check is needed (a swap can never change the count).
+ * Only the current OWNER may call this; the target must be an active, non-GUEST member who isn't
+ * the caller themselves.
+ */
+export async function transferOwnership(viewer: Viewer, input: { workspaceId: string; userId: string }): Promise<void> {
+  const actor = actorIn(viewer, input.workspaceId);
+  if (!actor) throw new DomainError(NOT_FOUND);
+  if (actor.role !== "OWNER") throw new DomainError("roleChangeForbidden");
+  if (input.userId === viewer.user.id) throw new DomainError("transferOwnershipSelf");
+
+  await db.$transaction(async (tx) => {
+    const target = await tx.membership.findUnique({
+      where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: input.userId } },
+      select: { id: true, role: true, status: true },
+    });
+    if (!target || target.status !== "ACTIVE") throw new DomainError(NOT_FOUND);
+    if (target.role === "GUEST") throw new DomainError("transferOwnershipIneligible");
+
+    const current = await tx.membership.findUniqueOrThrow({
+      where: { workspaceId_userId: { workspaceId: input.workspaceId, userId: viewer.user.id } },
+      select: { id: true },
+    });
+
+    await tx.membership.update({ where: { id: target.id }, data: { role: "OWNER" } });
+    await tx.membership.update({ where: { id: current.id }, data: { role: "ADMIN" } });
+
+    // Defensive, not load-bearing: the two updates above already guarantee exactly one owner by
+    // construction (a swap, never a decrement) — this only catches a logic error, never a race.
+    const owners = await tx.membership.count({ where: { workspaceId: input.workspaceId, role: "OWNER", status: "ACTIVE" } });
+    if (owners !== 1) throw new DomainError("generic");
+
+    await recordAudit(tx, {
+      workspaceId: input.workspaceId,
+      actorId: viewer.user.id,
+      action: "workspace.ownership_transferred",
+      targetType: "membership",
+      targetId: target.id,
+      before: { ownerId: viewer.user.id },
+      after: { ownerId: input.userId },
+    });
+    await recordActivity(tx, { workspaceId: input.workspaceId, actorId: viewer.user.id, entityType: "membership", entityId: target.id, action: "ownership_transferred" });
+    await notify(tx, {
+      recipientId: input.userId,
+      workspaceId: input.workspaceId,
+      actorId: viewer.user.id,
+      type: "WORKSPACE_OWNERSHIP_TRANSFERRED",
+      entityType: "membership",
+      entityId: target.id,
+      title: viewer.workspaces.find((w) => w.id === input.workspaceId)?.name ?? "",
+      deepLink: "/team",
+      dedupeKey: `membership:${target.id}:ownership_transferred`,
+    });
+  });
+}
+
 /** Removing a member deletes their membership outright; last-owner guard reuses canRemoveMember. */
 export async function removeMember(viewer: Viewer, input: { workspaceId: string; userId: string }): Promise<void> {
   const actor = actorIn(viewer, input.workspaceId);

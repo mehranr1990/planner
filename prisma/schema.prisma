@@ -128,6 +128,8 @@ enum NotificationType {
   TASK_DUE_DATE_CHANGED_BULK
   TASK_ASSIGNED_BULK
   TASK_UNBLOCKED_BULK
+  // Batch 6: sent to the new owner only, once, when a workspace's ownership is transferred.
+  WORKSPACE_OWNERSHIP_TRANSFERRED
 }
 
 // ─────────────────────────── Identity ───────────────────────────
@@ -136,7 +138,9 @@ model User {
   id                String          @id @default(cuid())
   email             String          @unique // stored lower-cased
   name              String
-  avatarUrl         String?         @map("avatar_url")
+  avatarUrl         String?         @map("avatar_url") // Batch 6: our own /api/avatars/[userId] proxy path, not a provider URL
+  avatarStorageKey  String?         @map("avatar_storage_key") // Blob pathname backing avatarUrl; null when no avatar is set
+  avatarMimeType    String?         @map("avatar_mime_type")
   passwordHash      String          @map("password_hash")
   timezone          String          @default("UTC")
   locale            String          @default("en")
@@ -174,6 +178,7 @@ model User {
   comments                Comment[]
   mentions                Mention[]
   reminders               Reminder[]
+  uploadedAttachments     Attachment[]
   activities              Activity[]
   auditEvents             AuditEvent[]
   notifications           Notification[]           @relation("NotificationRecipient")
@@ -251,6 +256,7 @@ model Workspace {
   recurrenceSeries RecurrenceSeries[]
   labels           Label[]
   comments         Comment[]
+  attachments      Attachment[]
   activities       Activity[]
   auditEvents      AuditEvent[]
   notifications    Notification[]
@@ -525,6 +531,7 @@ model Task {
   labels      TaskLabel[]
   comments    Comment[]
   reminders   Reminder[]
+  attachments Attachment[]
 
   @@unique([seriesId, occurrenceOn]) // recurrence duplication guard
   @@unique([createdById, clientMutationId])
@@ -724,6 +731,34 @@ model Mention {
   @@unique([commentId, mentionedId])
   @@index([mentionedId])
   @@map("mentions")
+}
+
+/// A file uploaded to a task (Batch 6). Metadata lives here, separate from the Blob object itself
+/// (§39: "metadata is separate from the storage provider"); `storageKey` (never the Blob's own URL)
+/// is the stable handle `src/server/storage` uses to fetch/remove the underlying bytes. The store
+/// is private — nothing here is reachable by a raw URL; every read goes through an authenticated
+/// route that re-checks the task's current visibility (src/app/api/attachments/[attachmentId]/
+/// route.ts), matching "access follows the parent resource." Soft-deleted (not hard-deleted) so the
+/// audit trail ("who uploaded what, when") survives removal even though the bytes themselves are
+/// also removed from the store at the same time.
+model Attachment {
+  id           String    @id @default(cuid())
+  taskId       String    @map("task_id")
+  workspaceId  String?   @map("workspace_id")
+  uploadedById String    @map("uploaded_by_id")
+  filename     String
+  mimeType     String    @map("mime_type")
+  size         Int
+  storageKey   String    @map("storage_key")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  task       Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace  Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy User       @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+  @@map("attachments")
 }
 
 /// Append-only, user-facing history ("Alex completed this task").

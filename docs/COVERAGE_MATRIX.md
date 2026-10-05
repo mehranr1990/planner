@@ -30,7 +30,7 @@ Legend:
 | IDN-07 | Browser tz captured at sign-up | /sign-up | validated IANA | — | — | — | ✅ | E | 1 |
 | IDN-08 | Locale preference UI | /settings/account | `LanguageForm` | own | St | §96 | ✅ | E | 2b |
 | IDN-09 | Settings split (Profile/Account/Appearance/Notifications/Preferences/Security/Connected) | /settings/* | per-section pages + `SettingsNav` | own | push list | §96 | ✅ | E | 2b |
-| IDN-10 | Avatar upload | profile | FileObject (3) | own | S | §96 | ⬜ | — | 3 (needs Q-PO-8) |
+| IDN-10 | Avatar upload | profile | `User.avatarStorageKey`/`avatarMimeType`, `/api/avatars/[userId]` | own | S | §96 | ✅ | E + I | 3 (batch 6) |
 | IDN-11 | Sessions list + sign out others | /settings/security | Session rows, `listSessions`/`revokeSession`/`revokeOtherSessions` | own | C | §96 | ✅ | E + I | 2b |
 | IDN-12 | Password change / reset | /settings/security, /forgot-password, /reset-password/[token] | `PasswordResetToken`, console/Resend `EmailProvider` | own | St | §96 | ✅ | E + I | 2b |
 | IDN-13 | Connected services | settings | IntegrationConnection | own | C | §96 | ⬜ | — | 12 |
@@ -58,7 +58,7 @@ Legend:
 | WS-16 | Workspace settings (name, icon, tz) | /settings/workspace/general | update + audit | workspace.manage | St | §96 | ✅ | I | 2b |
 | WS-17 | Workspace activity feed | /team | Activity | members.view | St | §96 | 🟡 write only | — | 6 |
 | WS-18 | Team directory | /directory | — | members.view | C | §96 | ⬜ | — | 14 |
-| WS-19 | Transfer ownership | settings | tx + audit | OWNER | S | §96 | ⬜ | — | 3 (deferred at the 2b gate — no acceptance-criteria detail existed; see `docs/phases/PHASE_2b.md` §100 item 9) |
+| WS-19 | Transfer ownership | `/team` member menu | `transferOwnership` (single tx: swap roles, audit, activity, notify) | OWNER only | confirm dialog | §96 | ✅ | E + I | 3 (batch 6) |
 
 ## 3. Permissions (§7, §83)
 
@@ -121,7 +121,7 @@ Legend:
 | TSK-17 | Dependencies (cycle-safe) | sheet (`DependencyPicker`) | BFS + CHECK, `addDependency`/`removeDependency` | edit | S | | ✅ sheet only, no canvas | U, I | 3 (batch 2) |
 | TSK-18 | Blockers display | sheet | `blockedBy`/`blocking` on `TaskDetail`, blocked chip | rel | S | | ✅ | I | 3 (batch 2) |
 | TSK-19 | Related tasks | sheet | TaskRelation | edit | S | | ⬜ | — | 3 |
-| TSK-20 | Attachments | sheet | FileObject + Attachment | edit | S | | ⬜ | — | 3 (Q-PO-8) |
+| TSK-20 | Attachments | sheet (`AttachmentsSection`) | `Attachment`, Vercel Blob (private store) | upload: edit · delete: uploader or `canDeleteTask` | compact list + inline uploader | | ✅ | E + I | 3 (batch 6) |
 | TSK-21 | Comments | sheet (`CommentsSection`) | `features/collaboration/*`, one level of replies | rel + author/moderated edit-delete | S | | ✅ | I | 3 (batch 2) |
 | TSK-22 | Mentions → notification | inline `@[Name](id)` autocomplete in comment composer | Mention, `MENTIONED` notification | rel (task-visibility-filtered) | S | | ✅ | I | 3 (batch 2) |
 | TSK-23 | Reminders | sheet (`ReminderControl`) | `Reminder` model, `features/reminders/*`, Vercel Cron delivery engine | self-service + visibility | S | | ✅ delivery pulled forward from Phase 4 (narrow scheduler, not the generic `Job` table) | I | 3 (batch 3) |
@@ -318,10 +318,10 @@ Legend:
 | CAP-06 | Convert → task / note / doc / inbox item (no multi-create) | dialog | shared services | per target | S | | ⬜ | — | 6 |
 | CAP-07 | Source reference retained (§68) | — | TaskSource (Q-DM-6) | — | — | — | ⬜ | — | 6 |
 | CAP-08 | OCR / extraction with correction before commit | review sheet | AiJob | ai.use | S | | ⬜ | — | 13 |
-| FIL-01 | Metadata separate from storage | — | FileObject + provider adapter | — | — | — | ⬜ | — | 3 (Q-PO-8) |
-| FIL-02 | Size / type / permission validation | upload | | parent | — | | ⬜ | — | 3 |
-| FIL-03 | Attach to tasks/projects/messages/meetings/docs/requests/users | Attachment FKs | CHECK | parent | C | | ⬜ | — | 3→10 |
-| FIL-04 | Access follows parent | download route | | parent | — | | ⬜ | — | 3 |
+| FIL-01 | Metadata separate from storage | — | `Attachment` row + `src/server/storage` provider adapter | — | — | — | ✅ | I | 3 (batch 6) |
+| FIL-02 | Size / type / permission validation | upload | allowlist + dangerous-extension + magic-byte checks (`features/attachments/domain/validation.ts`) | parent | inline error | | ✅ | I, E | 3 (batch 6) |
+| FIL-03 | Attach to tasks/projects/messages/meetings/docs/requests/users | Attachment FKs | CHECK | parent | C | | 🟡 tasks only | I, E | 3 (batch 6) →10 (projects/meetings/docs/requests), →7 (messages) |
+| FIL-04 | Access follows parent | download route | `/api/attachments/[attachmentId]` re-checks task visibility per request | parent | — | | ✅ | I, E | 3 (batch 6) |
 | PRF-01 | Review state and reviewer | review panel | ReviewRequest | rel | S | §96 | ⬜ | — | 10 |
 | PRF-02 | Review comments | | ReviewComment | rel | | | ⬜ | — | 10 |
 | PRF-03 | Approve / reject (via Approvals) | | shared engine | rel | | | ⬜ | — | 10 |

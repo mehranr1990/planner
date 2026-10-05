@@ -28,6 +28,8 @@ const KNOWN_TYPES = new Set([
   "TASK_DUE_DATE_CHANGED_BULK",
   "TASK_ASSIGNED_BULK",
   "TASK_UNBLOCKED_BULK",
+  // Batch 6: ownership transfer — sent to the new owner only, once.
+  "WORKSPACE_OWNERSHIP_TRANSFERRED",
 ] as const);
 type KnownType = typeof KNOWN_TYPES extends Set<infer K> ? K : never;
 

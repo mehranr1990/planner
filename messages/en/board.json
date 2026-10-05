@@ -4,5 +4,11 @@
   "addColumn": "Add column",
   "columnNamePlaceholder": "Column name",
   "cancel": "Cancel",
-  "reorderColumn": "Reorder column “{name}”"
+  "save": "Save",
+  "reorderColumn": "Reorder column “{name}”",
+  "columnMenu": "More actions for the “{name}” column",
+  "renameColumn": "Rename",
+  "deleteColumn": "Delete",
+  "deleteColumnTitle": "Delete the “{name}” column?",
+  "deleteColumnReason": "Its tasks move to “No column” instead of being deleted."
 }

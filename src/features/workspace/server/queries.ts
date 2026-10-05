@@ -29,6 +29,9 @@ export async function listMembers(viewer: Viewer, workspaceId: string, status: "
     ),
     canRemove: canRemoveMember(actor!, { userId: m.user.id, role: m.role as BaseRole }),
     canDeactivate: can(actor, "members.deactivate") && m.role !== "OWNER",
+    // Ownership transfer is a dedicated privileged operation (never a role-select option): only the
+    // current OWNER sees it, only on an active, non-GUEST member who isn't themselves.
+    canTransferOwnershipTo: actor!.role === "OWNER" && m.status === "ACTIVE" && m.role !== "GUEST" && m.user.id !== actor!.userId,
   }));
 }
 

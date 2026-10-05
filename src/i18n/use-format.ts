@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   formatCalendarDate,
   formatDateTime,
+  formatFileSize,
   formatMinutes,
   formatNumber,
   formatPercent,
@@ -15,6 +16,7 @@ export function bindFormat(locale: string, labels: RelativeDayLabels) {
   return {
     locale,
     number: (n: number) => formatNumber(n, locale),
+    fileSize: (bytes: number) => formatFileSize(bytes, locale),
     percent: (fraction: number) => formatPercent(fraction, locale),
     date: (d: CalendarDate, options?: Intl.DateTimeFormatOptions) => formatCalendarDate(d, locale, options),
     time: (instant: Date, timeZone: string) => formatTime(instant, timeZone, locale),

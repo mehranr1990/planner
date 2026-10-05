@@ -73,6 +73,7 @@ export interface TaskDetail extends TaskListItem {
   canAssign: boolean;
   subtasks: { id: string; title: string; status: TaskStatus; canEdit: boolean }[];
   checklistItems: { id: string; title: string; isDone: boolean }[];
+  attachments: { id: string; filename: string; mimeType: string; size: number; createdAt: string; uploadedBy: PersonRef; canDelete: boolean }[];
   activity: { id: string; action: string; actor: PersonRef | null; createdAt: string }[];
   isWatching: boolean;
   watcherCount: number;

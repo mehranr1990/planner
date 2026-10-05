@@ -66,6 +66,13 @@ export async function reactivateMemberAction(raw: z.input<typeof memberSchema>):
   return runAction("workspace", () => service.reactivateMember(viewer, parsed.data));
 }
 
+export async function transferOwnershipAction(raw: z.input<typeof memberSchema>): Promise<ActionResult> {
+  const parsed = memberSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("workspace", () => service.transferOwnership(viewer, parsed.data));
+}
+
 const workspaceSettingsSchema = z.object({
   workspaceId: z.cuid(),
   name: z.string().trim().min(2, "workspaceNameTooShort").max(80).optional(),

@@ -15,7 +15,10 @@
     "heading": "نمایه",
     "name": "نام",
     "save": "ذخیره",
-    "saved": "نمایه ذخیره شد"
+    "saved": "نمایه ذخیره شد",
+    "avatarUpload": "بارگذاری تصویر",
+    "avatarUploading": "در حال بارگذاری…",
+    "avatarRemove": "حذف"
   },
   "appearance": {
     "heading": "ظاهر",

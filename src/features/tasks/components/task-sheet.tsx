@@ -20,6 +20,7 @@ import { createLabelAction } from "@/features/labels/server/actions";
 import type { CommentItem } from "@/features/collaboration/types";
 import type { MilestoneOption } from "@/features/milestones/types";
 import type { ReminderDetail } from "@/features/reminders/types";
+import { AttachmentsSection } from "./attachments-section";
 import { CommentsSection } from "./comments-section";
 import { DependencyPicker } from "./dependency-picker";
 import { ReminderControl } from "./reminder-control";
@@ -68,6 +69,8 @@ const KNOWN_ACTIVITY = new Set([
   "schedule_changed",
   "section_changed",
   "milestone_changed",
+  "attachment_added",
+  "attachment_removed",
 ] as const);
 type ActivityKey = typeof KNOWN_ACTIVITY extends Set<infer K> ? K : never;
 
@@ -516,6 +519,8 @@ export function TaskSheet({
           </form>
         )}
       </section>
+
+      <AttachmentsSection taskId={task.id} attachments={task.attachments} canUpload={!readOnly} onError={setError} />
 
       <CommentsSection taskId={task.id} comments={comments} mentionCandidates={mentionCandidates} currentUser={currentUser} timezone={timezone} />
 

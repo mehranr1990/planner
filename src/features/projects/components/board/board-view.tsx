@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus } from "lucide-react";
+import { Check, GripVertical, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
@@ -25,8 +25,9 @@ import type { CalendarDate } from "@/lib/time";
 import type { BoardColumn } from "@/features/tasks/server/queries";
 import { moveTaskToSectionAction } from "@/features/tasks/server/actions";
 import type { TaskListItem } from "@/features/tasks/types";
-import { createSectionAction, reorderSectionAction } from "../../server/actions";
+import { createSectionAction, renameSectionAction, reorderSectionAction } from "../../server/actions";
 import { BoardCard } from "./board-card";
+import { ColumnMenu } from "./column-menu";
 
 /** Sentinel DOM id for the unsectioned ("no column") group — `null` isn't a valid dnd-kit item id. */
 const UNSECTIONED = "__unsectioned__";
@@ -157,8 +158,24 @@ export function BoardView({ projectId, columns, today, timezone, canEditProject 
 
 function Column({ column, today, timezone, draggable }: { column: BoardColumn; today: CalendarDate; timezone: string; draggable: boolean }) {
   const t = useTranslations("board");
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: domId(column.id), data: { type: "column" }, disabled: !draggable });
   const taskIds = column.tasks.map((task) => task.id);
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(column.name);
+  const [renamePending, startRename] = useTransition();
+
+  function submitRename() {
+    const trimmed = name.trim();
+    if (!trimmed || !column.id) return;
+    startRename(async () => {
+      const res = await renameSectionAction({ sectionId: column.id!, name: trimmed });
+      if (res.ok) {
+        setRenaming(false);
+        router.refresh();
+      }
+    });
+  }
 
   return (
     <section
@@ -173,10 +190,49 @@ function Column({ column, today, timezone, draggable }: { column: BoardColumn; t
             <GripVertical className="size-4" aria-hidden />
           </button>
         )}
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium" dir="auto">
-          {column.id === null ? t("unsectioned") : column.name}
-        </h3>
-        <span className="tabular shrink-0 text-[12px] text-foreground-subtle">{column.tasks.length}</span>
+        {renaming ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitRename();
+            }}
+            className="flex min-w-0 flex-1 items-center gap-1"
+          >
+            <Input autoFocus dir="auto" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} className="h-7 text-[13px]" />
+            <IconButton type="submit" size="sm" label={t("save")} disabled={renamePending || !name.trim()}>
+              <Check className="size-3.5" aria-hidden />
+            </IconButton>
+            <IconButton
+              type="button"
+              size="sm"
+              label={t("cancel")}
+              disabled={renamePending}
+              onClick={() => {
+                setName(column.name);
+                setRenaming(false);
+              }}
+            >
+              <X className="size-3.5" aria-hidden />
+            </IconButton>
+          </form>
+        ) : (
+          <>
+            <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium" dir="auto">
+              {column.id === null ? t("unsectioned") : column.name}
+            </h3>
+            <span className="tabular shrink-0 text-[12px] text-foreground-subtle">{column.tasks.length}</span>
+            {draggable && column.id !== null && (
+              <ColumnMenu
+                sectionId={column.id}
+                name={column.name}
+                onRename={() => {
+                  setName(column.name);
+                  setRenaming(true);
+                }}
+              />
+            )}
+          </>
+        )}
       </header>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         <div className="flex min-h-12 flex-col gap-2">

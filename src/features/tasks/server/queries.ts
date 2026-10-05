@@ -291,6 +291,11 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
       watchers: { select: { userId: true } },
       blockedBy: { select: { blockingTask: { select: { id: true, title: true, status: true } } }, orderBy: { createdAt: "asc" } },
       blocking: { select: { blockedTask: { select: { id: true, title: true, status: true } } }, orderBy: { createdAt: "asc" } },
+      attachments: {
+        where: { deletedAt: null },
+        select: { id: true, filename: true, mimeType: true, size: true, createdAt: true, uploadedById: true, uploadedBy: { select: { id: true, name: true, avatarUrl: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   const activity = await db.activity.findMany({
@@ -316,6 +321,15 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
     watcherCount: row.watchers.length,
     subtasks: row.subtasks.map((s) => ({ id: s.id, title: s.title, status: s.status, canEdit: canEditTask(viewer, s) })),
     checklistItems: row.checklist,
+    attachments: row.attachments.map((a) => ({
+      id: a.id,
+      filename: a.filename,
+      mimeType: a.mimeType,
+      size: a.size,
+      createdAt: a.createdAt.toISOString(),
+      uploadedBy: a.uploadedBy,
+      canDelete: a.uploadedById === viewer.user.id || canDeleteTask(viewer, policy),
+    })),
     activity: activity.map((a) => ({ id: a.id, action: a.action, actor: a.actor, createdAt: a.createdAt.toISOString() })),
     blockedBy,
     blocking: row.blocking.map((d) => d.blockedTask),

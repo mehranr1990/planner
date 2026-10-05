@@ -62,5 +62,12 @@
   "reminderNeedsDueDate": "Give the task a due date before setting a reminder relative to it.",
   "tooManySections": "This project already has the maximum number of board columns.",
   "milestoneOtherProject": "A milestone can only be linked to a task in the same project.",
-  "sectionNameRequired": "Give the column a name."
+  "sectionNameRequired": "Give the column a name.",
+  "attachmentEmpty": "That file is empty.",
+  "attachmentTooLarge": "That file is larger than the 20 MB limit.",
+  "attachmentTypeNotAllowed": "That file type isn’t supported.",
+  "avatarTooLarge": "That image is larger than the 5 MB limit.",
+  "avatarTypeNotAllowed": "Use a PNG, JPEG, WEBP or GIF image.",
+  "transferOwnershipSelf": "You already own this workspace.",
+  "transferOwnershipIneligible": "This member can’t be made the workspace owner."
 }

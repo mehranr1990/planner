@@ -13,6 +13,7 @@
     "TASK_UNBLOCKED": "«{title}» دیگر مسدود نیست",
     "INVITATION": "{actor} دعوت شما به «{title}» را پذیرفت",
     "WORKSPACE_ROLE_CHANGED": "نقش شما اکنون «{title}» است",
+    "WORKSPACE_OWNERSHIP_TRANSFERRED": "اکنون مالک «{title}» هستید",
     "TASK_STATUS_CHANGED_BULK": "{actor} وضعیت {count, plural, other {# کار}} را تغییر داد",
     "TASK_DUE_DATE_CHANGED_BULK": "{actor} موعد {count, plural, other {# کار}} را تغییر داد",
     "TASK_ASSIGNED_BULK": "{actor} شما را به {count, plural, other {# کار}} اختصاص داد",

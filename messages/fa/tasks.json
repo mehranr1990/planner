@@ -155,7 +155,17 @@
     "reminder_created": "<actor>{name}</actor> یادآوری تنظیم کرد",
     "reminder_updated": "<actor>{name}</actor> یادآوری را ویرایش کرد",
     "reminder_removed": "<actor>{name}</actor> یادآوری را حذف کرد",
+    "attachment_added": "<actor>{name}</actor> فایلی افزود",
+    "attachment_removed": "<actor>{name}</actor> فایلی را حذف کرد",
     "other": "<actor>{name}</actor> این کار را تغییر داد"
+  },
+  "attachments": {
+    "heading": "پیوست‌ها",
+    "empty": "هنوز فایلی نیست",
+    "upload": "افزودن فایل",
+    "uploading": "در حال بارگذاری…",
+    "download": "بارگیری «{name}»",
+    "delete": "حذف «{name}»"
   },
   "deletedBanner": "کار حذف شد",
   "bulk": {

@@ -77,7 +77,7 @@ Every entry point (planner, project, calendar, chat, meeting, forms, capture, au
 | Activity / audit | `server/activity.ts` (`recordActivity`, `recordAudit`) | ✅ |
 | Notifications | `server/notifications.ts` — `notify(tx, {recipient, type, entity, dedupeKey})` (single) + `notifyMany(tx, recipientIds, {…, dedupeKeyFor})` (fan-out, added Phase 3 batch 3). Preferences (`NotificationPreference`) still unused — Phase 6 | Phase 2b core; `notifyMany` + in-app inbox UI (`features/notifications/*`, `NotificationBell`) Phase 3 batch 3 |
 | Comments / mentions / reactions / watchers | `features/collaboration/server/*` (one for all parent types) | Phase 3 |
-| Files | `server/files/*` (provider adapter + `Attachment` service; access = parent access) | Phase 3 |
+| Files | `server/storage/*` (provider interface + Vercel Blob / in-memory dev-test adapters, see "File storage" below) + `features/attachments/server/*` (`Attachment` service; access = parent task's access) | ✅ Phase 3 batch 6 |
 | Approvals | `features/approvals/server/service.ts` (generic source refs) | Phase 9 |
 | Search indexing | `server/search/index.ts` — each module registers an indexer | Phase 6 |
 | Jobs | `server/jobs/*` (see below) | Phase 4 |
@@ -201,6 +201,22 @@ Running `prisma migrate dev` (to author new migrations) still works locally agai
 
 Nothing may run destructive setup/cleanup without `APP_ENV=test` — checked in `e2e/support/global-setup.ts` before seeding, and `VERCEL_ENV=production` is an absolute, unconditional refusal in both that file and `src/server/__tests__/helpers.ts`. `playwright.config.ts` sets `APP_ENV=test` by default for local convenience; CI sets it explicitly next to the test-branch secret, so the decision stays visible in the workflow file (`.github/workflows/ci.yml`) rather than being implicit.
 
+## File storage (Vercel Blob, Phase 3 batch 6)
+
+`src/server/storage/provider.ts` defines a small `StorageProvider` interface (`upload`/`download`/`remove`) — domain/service code depends only on this, never on `@vercel/blob` directly, the same D14 reasoning the `EmailProvider` interface already established. Metadata is never just the provider's URL: the `Attachment` model (task attachments) and `User.avatarStorageKey`/`avatarMimeType` (avatars) store `filename`/`mimeType`/`size`/the provider's `storageKey` as real columns, satisfying §39's "metadata is separate from the storage provider."
+
+| Adapter | When selected | Behavior |
+|---|---|---|
+| `VercelBlobStorageProvider` | `BLOB_READ_WRITE_TOKEN` set, or OIDC (`VERCEL_OIDC_TOKEN` + `BLOB_STORE_ID`, set automatically once a store is connected to the Vercel project) | Every object uploaded with `access: "private"` — the store itself requires authentication for every read and write, so a raw/guessable URL is never enough on its own, on top of the application-layer check every read route also does |
+| `InMemoryStorageProvider` | No credentials and not running on Vercel (`VERCEL_ENV` unset) | Dev/test default (mirrors `ConsoleEmailProvider`'s role) — an in-process `Map`, so `next dev` and the Vitest suite need no real Blob store. Unlike the email console adapter, this one actually round-trips bytes (tests upload, then read back what they uploaded) |
+| `UnconfiguredStorageProvider` | `VERCEL_ENV` is set (a real Vercel deployment) but no credentials | Throws a clear, actionable error — but only when something actually tries to upload/download/remove, never at import time, so a deploy with no Blob store connected yet still builds and serves every other route |
+
+The provider instance is cached on `globalThis` (not a plain module-level variable) — Next.js can bundle Server Actions and Route Handlers into separate chunks, each with its own copy of a module's top-level scope; without the `globalThis` cache, an object uploaded from a Server Action could be invisible to a Route Handler reading from a *different* in-memory instance within the same running process (hit, diagnosed and fixed during batch 6's own E2E verification — see `docs/QA.md` §3h). `src/server/db.ts` already uses the identical pattern for the same underlying reason.
+
+**Avatars are a deliberate exception to "private + authenticated proxy":** task attachments (real user documents, task-visibility-scoped) go through `/api/attachments/[attachmentId]`, which re-derives the caller's visibility into the parent task on every request. Avatars are low-sensitivity (profile photos rendered dozens of times per page — assignee lists, comments, team directory) and are served through `/api/avatars/[userId]` with only an "is the caller signed in at all" check, not a per-viewer visibility computation — still never a raw Blob URL (the store stays private either way), but intentionally not scoped beyond authentication. Documented here per the explicit call: "if avatars are public-readable, say so; otherwise use signed/controlled access" — this is the controlled-access option, scoped deliberately wide.
+
+**Required Vercel setup (not yet provisioned — see §8 of `docs/HANDOFF.md`):** create a **private** Blob store (dashboard: Storage tab → Create Storage → Blob → access **Private**) and connect it to the project; the integration injects `BLOB_READ_WRITE_TOKEN`/OIDC automatically, nothing to set by hand. `BLOB_READ_WRITE_TOKEN` is documented in `.env.example`, left unset for local dev on purpose.
+
 ## Deployment (Vercel + Neon)
 
 ```
@@ -232,3 +248,4 @@ GitHub → push → Vercel → Next.js → Prisma 7 → Neon Postgres
 | D11 | Explicit per-direction font stack built in the root layout | next/font's fallback faces (local Arial, U+0-10FFFF) otherwise capture the other script's glyphs, and Turbopack ignores `adjustFontFallback: false` |
 | D8 | Own primitives instead of shadcn/ui (spec §3 lists shadcn as low-level primitives) | Kept the bundle and dependencies minimal for Phase 1; revisit for menus/popovers/comboboxes (Q-PO-10) |
 | D14 | Email behind an `EmailProvider` interface; Resend adapter for prod/staging, console/fake adapter for dev/test, chosen by environment config | Q-PO-4: domain/workspace/auth services must never import Resend directly, so the provider can be swapped later without touching business logic; delivery failure must not corrupt invitation/membership/password-reset/account state |
+| D16 | File storage behind a `StorageProvider` interface (D14's exact shape); Vercel Blob adapter selected by credential presence, `VERCEL_ENV` (not `NODE_ENV`) distinguishes "really deployed, misconfigured" from "a local production build" | Q-PO-8: same reasoning as D14 — services never import `@vercel/blob` directly. `NODE_ENV === "production"` alone would also fire for `next start` (E2E's own webServer), which must still work with no Blob store at hand, the same way E2E already forces `EMAIL_PROVIDER=console` against a production build |

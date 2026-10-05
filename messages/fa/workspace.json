@@ -45,7 +45,8 @@
   "noGuestsHint": "برای دسترسی محدود و مشخص، مهمان یا همکار بیرونی دعوت کنید.",
   "external": "بیرونی",
   "nav": {
-    "label": "بخش‌های تیم",
+    "label": "نماهای تیم",
+    "labelSidebar": "بخش‌های تیم",
     "members": "اعضا",
     "invitations": "دعوت‌نامه‌ها",
     "teams": "تیم‌ها",
@@ -67,7 +68,10 @@
     "deactivateTitle": "{name} غیرفعال شود؟",
     "deactivateReason": "آن‌ها تا فعال‌سازی دوباره، دسترسی به این فضای کاری را از دست می‌دهند.",
     "reactivateTitle": "{name} دوباره فعال شود؟",
-    "reactivateReason": "دسترسی پیشین‌شان بازمی‌گردد."
+    "reactivateReason": "دسترسی پیشین‌شان بازمی‌گردد.",
+    "transferOwnership": "واگذاری مالکیت",
+    "transferOwnershipTitle": "{name} مالک فضای کاری شود؟",
+    "transferOwnershipReason": "شما به‌جای آن ادمین خواهید شد. {name} مالکیت کامل این فضای کاری را خواهد داشت، از جمله امکان حذف شما."
   },
   "general": {
     "metaTitle": "تنظیمات فضای کاری",

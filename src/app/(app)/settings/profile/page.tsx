@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Panel, SectionHeader } from "@/components/ui/surface";
-import { ProfileForm } from "@/features/account/components/settings-forms";
+import { AvatarForm, ProfileForm } from "@/features/account/components/settings-forms";
 import { SettingsHeader } from "@/features/account/components/settings-header";
 import { getViewer } from "@/server/context";
 
@@ -19,6 +19,7 @@ export default async function ProfileSettingsPage() {
       <div className="flex max-w-3xl flex-col gap-4">
         <Panel aria-labelledby="profile-heading">
           <SectionHeader title={<span id="profile-heading">{t("heading")}</span>} />
+          <AvatarForm user={{ id: viewer.user.id, name: viewer.user.name, avatarUrl: viewer.user.avatarUrl }} />
           <ProfileForm name={viewer.user.name} />
         </Panel>
       </div>

@@ -62,5 +62,12 @@
   "reminderNeedsDueDate": "پیش از تنظیم یادآوری نسبت به موعد، برای کار موعدی تعیین کنید.",
   "tooManySections": "این پروژه از پیش به بیشترین تعداد ستون تخته رسیده است.",
   "milestoneOtherProject": "نقطهٔ عطف فقط به کاری در همان پروژه قابل پیوند است.",
-  "sectionNameRequired": "برای ستون نامی بگذارید."
+  "sectionNameRequired": "برای ستون نامی بگذارید.",
+  "attachmentEmpty": "این فایل خالی است.",
+  "attachmentTooLarge": "این فایل از محدودیت ۲۰ مگابایت بزرگ‌تر است.",
+  "attachmentTypeNotAllowed": "این نوع فایل پشتیبانی نمی‌شود.",
+  "avatarTooLarge": "این تصویر از محدودیت ۵ مگابایت بزرگ‌تر است.",
+  "avatarTypeNotAllowed": "از تصویر PNG، JPEG، WEBP یا GIF استفاده کنید.",
+  "transferOwnershipSelf": "شما از پیش مالک این فضای کاری هستید.",
+  "transferOwnershipIneligible": "این عضو نمی‌تواند مالک فضای کاری شود."
 }

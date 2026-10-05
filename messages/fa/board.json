@@ -4,5 +4,11 @@
   "addColumn": "افزودن ستون",
   "columnNamePlaceholder": "نام ستون",
   "cancel": "انصراف",
-  "reorderColumn": "جابه‌جایی ستون «{name}»"
+  "save": "ذخیره",
+  "reorderColumn": "جابه‌جایی ستون «{name}»",
+  "columnMenu": "اقدامات بیشتر برای ستون «{name}»",
+  "renameColumn": "تغییر نام",
+  "deleteColumn": "حذف",
+  "deleteColumnTitle": "ستون «{name}» حذف شود؟",
+  "deleteColumnReason": "کارهای آن به ستون «بدون ستون» منتقل می‌شوند، نه حذف."
 }

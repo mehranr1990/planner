@@ -42,7 +42,13 @@ export default async function GuestsPage() {
         ) : (
           <ul className="flex flex-col">
             {guests.map((g, i) => (
-              <li key={g.user.id} className="animate-rise flex items-center gap-4 rounded-[18px] px-3 py-3 hover:bg-surface-elevated" style={{ "--i": i } as React.CSSProperties}>
+              <li
+                key={g.user.id}
+                // See team/page.tsx's identical fix: `animate-rise` traps the MemberActions
+                // dropdown's z-index inside its own row's stacking context otherwise.
+                className="animate-rise relative flex items-center gap-4 rounded-[18px] px-3 py-3 hover:bg-surface-elevated has-[details[open]]:z-10"
+                style={{ "--i": i } as React.CSSProperties}
+              >
                 <Avatar person={g.user} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14.5px] font-medium" dir="auto">
@@ -50,7 +56,7 @@ export default async function GuestsPage() {
                   </p>
                 </div>
                 {g.isExternal && <Chip tone="peach">{t("external")}</Chip>}
-                <MemberActions workspaceId={ws.id} userId={g.user.id} name={g.user.name} status="ACTIVE" canRemove={g.canRemove} canDeactivate={false} />
+                <MemberActions workspaceId={ws.id} userId={g.user.id} name={g.user.name} status="ACTIVE" canRemove={g.canRemove} canDeactivate={false} canTransferOwnershipTo={false} />
               </li>
             ))}
           </ul>

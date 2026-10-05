@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
+import type { PersonRef } from "@/components/ui/people";
 import { LOCALE_NAMES, LOCALES, type AppLocale } from "@/i18n/config";
 import { createWorkspaceAction } from "@/features/workspace/server/actions";
-import { updatePreferencesAction } from "../server/actions";
+import { removeAvatarAction, updatePreferencesAction, uploadAvatarAction } from "../server/actions";
 
 function useAction() {
   const [pending, start] = useTransition();
@@ -52,6 +54,68 @@ export function ProfileForm({ name }: { name: string }) {
         <Status message={message} />
       </div>
     </form>
+  );
+}
+
+/** Compact avatar upload/replace/remove (Batch 6) — its own small form, not folded into
+ * `ProfileForm`'s single-field `useAction` shape, since it needs FormData + optimistic preview. */
+export function AvatarForm({ user }: { user: PersonRef }) {
+  const t = useTranslations("settings.profile");
+  const router = useRouter();
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleFiles(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file) return;
+    setError(null);
+    const form = new FormData();
+    form.set("file", file);
+    start(async () => {
+      const res = await uploadAvatarAction(form);
+      if (res.ok) {
+        setAvatarUrl(res.data.avatarUrl);
+        router.refresh();
+      } else setError(res.error ?? null);
+      if (inputRef.current) inputRef.current.value = "";
+    });
+  }
+
+  function handleRemove() {
+    setError(null);
+    start(async () => {
+      const res = await removeAvatarAction();
+      if (res.ok) {
+        setAvatarUrl(null);
+        router.refresh();
+      } else setError(res.error ?? null);
+    });
+  }
+
+  return (
+    <div className="mb-5 flex items-center gap-4">
+      <Avatar person={{ ...user, avatarUrl }} size="lg" />
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <label className="inline-flex h-8 cursor-pointer items-center rounded-full bg-surface-elevated px-3.5 text-[13px] ring-1 ring-border-subtle hover:ring-border-strong">
+            {pending ? t("avatarUploading") : t("avatarUpload")}
+            <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" disabled={pending} onChange={(e) => handleFiles(e.target.files)} />
+          </label>
+          {avatarUrl && (
+            <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={handleRemove}>
+              {t("avatarRemove")}
+            </Button>
+          )}
+        </div>
+        {error && (
+          <span role="alert" className="text-[12.5px] text-accent-red">
+            {error}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

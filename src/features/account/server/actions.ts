@@ -44,3 +44,17 @@ export async function setGuestLocaleAction(raw: string): Promise<ActionResult> {
   if (!parsed.success) return fail(await localizeError("localeUnsupported"));
   return runAction("account", () => rememberLocale(parsed.data));
 }
+
+/** FormData (not a Zod-validated object) because a browser `File` has no meaningful Zod schema —
+ * the real validation happens in service.ts, against the actual bytes. */
+export async function uploadAvatarAction(form: FormData): Promise<ActionResult<{ avatarUrl: string }>> {
+  const file = form.get("file");
+  if (!(file instanceof File)) return fail(await localizeError("invalidInput"));
+  const viewer = await getViewer();
+  return runAction("account", () => service.setAvatar(viewer, file));
+}
+
+export async function removeAvatarAction(): Promise<ActionResult> {
+  const viewer = await getViewer();
+  return runAction("account", () => service.removeAvatar(viewer));
+}

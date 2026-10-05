@@ -15,7 +15,10 @@
     "heading": "Profile",
     "name": "Name",
     "save": "Save",
-    "saved": "Profile saved"
+    "saved": "Profile saved",
+    "avatarUpload": "Upload photo",
+    "avatarUploading": "Uploading…",
+    "avatarRemove": "Remove"
   },
   "appearance": {
     "heading": "Appearance",

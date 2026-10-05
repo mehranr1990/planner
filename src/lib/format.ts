@@ -38,6 +38,19 @@ export function formatNumber(value: number, locale: string): string {
   return numberFormatter(locale).format(value);
 }
 
+/** Human-readable file size (binary units — KB/MB/GB = 1024, not 1000). */
+export function formatFileSize(bytes: number, locale: string): string {
+  if (bytes < 1024) return `${formatNumber(bytes, locale)} B`;
+  const units = ["KB", "MB", "GB"] as const;
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${numberFormatter(locale, { maximumFractionDigits: 1 }).format(value)} ${units[unitIndex]}`;
+}
+
 /** `fraction` is 0…1. */
 export function formatPercent(fraction: number, locale: string): string {
   return numberFormatter(locale, { style: "percent", maximumFractionDigits: 0 }).format(fraction);

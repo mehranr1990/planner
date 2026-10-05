@@ -45,7 +45,8 @@
   "noGuestsHint": "Invite a guest or external collaborator for limited, scoped access.",
   "external": "External",
   "nav": {
-    "label": "Team sections",
+    "label": "Team views",
+    "labelSidebar": "Team sections",
     "members": "Members",
     "invitations": "Invitations",
     "teams": "Teams",
@@ -67,7 +68,10 @@
     "deactivateTitle": "Deactivate {name}?",
     "deactivateReason": "They’ll lose access to this workspace until reactivated.",
     "reactivateTitle": "Reactivate {name}?",
-    "reactivateReason": "They’ll regain the access they had before being deactivated."
+    "reactivateReason": "They’ll regain the access they had before being deactivated.",
+    "transferOwnership": "Transfer ownership",
+    "transferOwnershipTitle": "Make {name} the workspace owner?",
+    "transferOwnershipReason": "You’ll become an admin instead. {name} will have full ownership of this workspace, including the ability to remove you."
   },
   "general": {
     "metaTitle": "Workspace settings",

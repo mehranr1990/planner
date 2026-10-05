@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MoreHorizontal } from "lucide-react";
-import { deactivateMemberAction, reactivateMemberAction, removeMemberAction } from "../server/actions";
+import { deactivateMemberAction, reactivateMemberAction, removeMemberAction, transferOwnershipAction } from "../server/actions";
 
 export function MemberActions({
   workspaceId,
@@ -14,6 +14,7 @@ export function MemberActions({
   status,
   canRemove,
   canDeactivate,
+  canTransferOwnershipTo,
 }: {
   workspaceId: string;
   userId: string;
@@ -21,12 +22,13 @@ export function MemberActions({
   status: "ACTIVE" | "DEACTIVATED";
   canRemove: boolean;
   canDeactivate: boolean;
+  canTransferOwnershipTo: boolean;
 }) {
   const t = useTranslations("workspace.memberActions");
   const router = useRouter();
-  const [confirm, setConfirm] = useState<"remove" | "deactivate" | "reactivate" | null>(null);
+  const [confirm, setConfirm] = useState<"remove" | "deactivate" | "reactivate" | "transferOwnership" | null>(null);
 
-  if (!canRemove && !canDeactivate) return null;
+  if (!canRemove && !canDeactivate && !canTransferOwnershipTo) return null;
 
   return (
     <>
@@ -48,6 +50,11 @@ export function MemberActions({
               {t("reactivate")}
             </button>
           )}
+          {canTransferOwnershipTo && (
+            <button type="button" onClick={() => setConfirm("transferOwnership")} className="flex w-full items-center rounded-[12px] px-3 py-2 text-start text-[13.5px] hover:bg-surface-secondary">
+              {t("transferOwnership")}
+            </button>
+          )}
           {canRemove && (
             <button type="button" onClick={() => setConfirm("remove")} className="flex w-full items-center rounded-[12px] px-3 py-2 text-start text-[13.5px] text-accent-red hover:bg-accent-red-soft/40">
               {t("remove")}
@@ -56,6 +63,17 @@ export function MemberActions({
         </div>
       </details>
 
+      <ConfirmDialog
+        open={confirm === "transferOwnership"}
+        onClose={() => setConfirm(null)}
+        title={t("transferOwnershipTitle", { name })}
+        reason={t("transferOwnershipReason")}
+        confirmLabel={t("transferOwnership")}
+        onConfirm={async () => {
+          await transferOwnershipAction({ workspaceId, userId });
+          router.refresh();
+        }}
+      />
       <ConfirmDialog
         open={confirm === "remove"}
         onClose={() => setConfirm(null)}
