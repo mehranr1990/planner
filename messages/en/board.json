@@ -1,0 +1,8 @@
+{
+  "unsectioned": "No column",
+  "empty": "No tasks here",
+  "addColumn": "Add column",
+  "columnNamePlaceholder": "Column name",
+  "cancel": "Cancel",
+  "reorderColumn": "Reorder column “{name}”"
+}

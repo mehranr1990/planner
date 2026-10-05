@@ -18,9 +18,9 @@ Required by §95 (reuse before duplicating) and §90 (know every usage before ch
 | Avatar / AvatarGroup | `Avatar` / **`PeopleCluster`** (replaces `AvatarGroup`) | ✅ standard people pattern (DESIGN_SYSTEM §13) |
 | StatusPill | `Chip` | ✅ (status semantics to be wrapped as `StatusPill` in Phase 3) |
 | CommandMenu | — | Phase 6 |
-| FilterBar | — (pill groups duplicated; see §4) | Phase 3 |
-| TaskCard / TaskRow / TaskDetail / TaskComposer | — / `TaskRow`, `TaskList` / `TaskSheet` / `QuickAdd` | 🟡 (TaskCard for Board, Phase 3) |
-| ProjectCard / ProjectHeader | `ProjectCard` / — | 🟡 (header Phase 3) |
+| FilterBar | `FilterBar` | ✅ (Phase 3 batch 4; reused as-is by Board/Timeline, batch 5 — no board-specific filter logic) |
+| TaskCard / TaskRow / TaskDetail / TaskComposer | `BoardCard` / `TaskRow`, `TaskList` / `TaskSheet` / `QuickAdd` | ✅ (`BoardCard`, Phase 3 batch 5 — deliberately not a reuse of `TaskRow`; a board card's lower information density is by design) |
+| ProjectCard / ProjectHeader | `ProjectCard` / `ProjectHeader` | ✅ (`ProjectHeader`, Phase 3 batch 5 — used by Board/Timeline/Milestones; the pre-existing Tasks tab keeps its own inline header + a `ProjectTabs` call, to avoid touching already-tested markup) |
 | WorkflowNode / WorkflowCanvas | — | Phase 3 (dependencies), reused in 12 |
 | Calendar / CalendarEvent | — | Phase 4 |
 | HabitCard | — | Phase 5 |
@@ -115,8 +115,8 @@ Component rules:
 | `PillTabs`, `SegmentedControl`, `FilterBar`, `SavedViewPills` | navigation, choice, filtering | 3 | planner, boards, requests, reports |
 | `Menu`, `Popover`, `ContextMenu` | accessible menus | 3 | everywhere |
 | `DatePicker`, `DateTimeRangePicker`, `RecurrenceEditor` | tz-aware pickers | 3/4 | tasks, events, habits, subscriptions |
-| `TaskCard` | Board/Kanban card | 3 | project board, boards |
-| `Kanban` | columns plus DnD (keyboard-accessible) | 3 | projects, boards, CRM pipeline |
+| `TaskCard` | Board/Kanban card | 3 | ✅ as `BoardCard` (batch 5) for the project board. Not yet a generic cross-module card — Phase 8's `boards`/CRM pipeline will need their own evaluation of whether this is reusable as-is or needs a `kind`-agnostic variant |
+| `Kanban` | columns plus DnD (keyboard-accessible) | 3 | ✅ as `BoardView`/`Column` (batch 5) for the project board — `ProjectSection`/`Task`-specific (not a generic, item-type-agnostic Kanban primitive). dnd-kit's "multiple containers" pattern, keyboard-sortable by default. Phase 8's generic `boards`/CRM pipeline is a separate build, not a drop-in reuse of this component as-is |
 | `WorkflowCanvas`, `WorkflowNode`, `Connector` | nodes plus curved SVG connectors for real relations | 3 | dependencies, timeline, automations, playbooks |
 | `CommentThread`, `MentionInput` | comments with mentions | 3 | tasks, projects, docs, requests, meetings |
 | `ActivityFeed` | append-only history display | 3 | all entities |

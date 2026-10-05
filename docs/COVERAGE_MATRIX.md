@@ -113,7 +113,7 @@ Legend:
 | TSK-09 | Followers/watchers | sheet | TaskWatcher, `watchTask`/`unwatchTask` | self + visibility | S | | ✅ | I | 3 (batch 1) |
 | TSK-10 | Creator / owner display + owner transfer | sheet | | edit | S | | 🟡 creator shown | — | 3 |
 | TSK-11 | Move to project (same space) | TaskSheet | cross-space rejected | edit | S | | ✅ | I | 2 |
-| TSK-12 | Board/list (section), area | sheet | ProjectSection, Area | edit | S | | 🗄 | — | 3 |
+| TSK-12 | Board/list (section), area | sheet, Board tab | ProjectSection (`moveTaskToSection`), Area | edit | S | | 🟡 section done, area still 🗄 (no Area UI anywhere) | I | 3 (batch 5) |
 | TSK-13 | Labels/tags (task-level) | LabelPicker | Label, `features/labels/*`, `setTaskLabels` | tasks.create (manage: owner/`workspace.manage`) | S | | ✅ | I | 3 (batch 1) |
 | TSK-14 | Custom fields on tasks | sheet | CustomField | edit | S | | ⬜ | — | 8 |
 | TSK-15 | Subtasks (create/complete/delete) | sheet | parentId, `createSubtask` (one level deep) | edit | S | | 🟡 reorder: `reorderTask` service-ready + integration-tested (batch 4, reuses the same function as top-level lists via `orderingScope`), but **no drag-handle UI in the sheet's subtask list yet** — carry the UI wiring to a later batch | I | 3 (batch 1) |
@@ -155,11 +155,11 @@ Legend:
 | PRJ-06 | Edit name / description / icon / dates / priority / visibility | settings sheet | | edit | S | §96 | ⬜ | — | 3 |
 | PRJ-07 | Members management | members sheet | ProjectMember | edit | S | | 🟡 creator only | — | 3 |
 | PRJ-08 | Tags, custom fields | sheet | Label / CustomField | edit | S | | ⬜ | — | 3/8 |
-| PRJ-09 | Milestones | overview | Milestone | edit | C | §96 | ⬜ | — | 3 |
-| PRJ-10 | Sections | tasks tab | ProjectSection | edit | St | | 🗄 | — | 3 |
+| PRJ-09 | Milestones | Milestones tab | Milestone | edit | C | §96 | ✅ | I, E | 3 (batch 5) |
+| PRJ-10 | Sections | Board tab | ProjectSection (`sections.ts`) | edit | St | | ✅ | I | 3 (batch 5) |
 | PRJ-11 | Tasks tab (list/table) | tab | | rel | C | | 🟡 list only | E | 3 |
-| PRJ-12 | Board (kanban) | tab | same data | rel | horizontal scroll | D1 columns | ⬜ | — | 3 |
-| PRJ-13 | Timeline / Gantt-like with dependencies | tab | | rel | agenda list | D1 connectors | ⬜ | — | 3 |
+| PRJ-12 | Board (kanban) | Board tab | same data (`getBoardData`) | rel | horizontal scroll | D1 columns | ✅ | I, E | 3 (batch 5) |
+| PRJ-13 | Timeline / Gantt-like with dependencies | Timeline tab | same data (`getTimelineTasks`) | rel | horizontal scroll (not the agenda-list fallback originally sketched) | D1 connectors | 🟡 read-first (no drag/resize, no dependency connectors — deliberate scope cut, see HANDOFF §2c) | I | 3 (batch 5) |
 | PRJ-14 | Project calendar | tab | | rel | agenda | §96 | ⬜ | — | 4 |
 | PRJ-15 | Workload view | tab | | reports.view | C | | ⬜ | — | 8 |
 | PRJ-16 | Progress view | tab | | rel | St | | ⬜ | — | 8 |
@@ -171,7 +171,7 @@ Legend:
 | PRT-01 | Portfolio CRUD + owner | /portfolio | Portfolio | portfolios.manage | C | §96 | ⬜ | — | 14 |
 | PRT-02 | Status / progress / health / deadline / priority roll-up | portfolio | permission-aware aggregates | portfolios.view_all | C | V7 | ⬜ | — | 14 |
 | PRT-03 | Portfolio milestones, risks, cross-project report | portfolio | | | C | | ⬜ | — | 14 |
-| RMP-01 | Milestones | project, roadmap | Milestone | edit | C | | ⬜ | — | 3 |
+| RMP-01 | Milestones | project, roadmap | Milestone | edit | C | | 🟡 project-level done (batch 5); no cross-project roadmap page yet | I | 3/14 |
 | RMP-02 | Roadmap items linked to projects/tasks | /roadmap | RoadmapItem | rel | agenda | D1 | ⬜ | — | 14 |
 | RMP-03 | Releases, targets, dependencies, timeline | /roadmap | Release | rel | agenda | | ⬜ | — | 14 |
 | AGL-01 | Per-project agile toggle | project settings | flag | edit | — | | ⬜ | — | 14 |

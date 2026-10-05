@@ -1,0 +1,9 @@
+{
+  "heading": "Timeline",
+  "today": "Today",
+  "previous": "Earlier",
+  "next": "Later",
+  "noDate": "{count, plural, one {# task has no dates and isn’t shown here} other {# tasks have no dates and aren’t shown here}}",
+  "empty": "No dated tasks in this range",
+  "todayMarker": "Today"
+}

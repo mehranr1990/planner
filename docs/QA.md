@@ -11,7 +11,7 @@ Implements §86 (risk-based testing), §87 (E2E flows), §88 (visual regression)
 | `npm test` | Vitest: unit + DB integration (integration skips without `DATABASE_URL`) |
 | `npm run build` | production build |
 
-Last run (2026-10-04, Phase 2b + top-shell redesign §3f): typecheck ✅ · lint ✅ · Vitest **178/178** ✅ · build ✅ · Playwright **43/43** ✅ (21 flows + 22 visual, re-recorded for the new shell header).
+Last run (2026-10-05, Phase 3 batch 5 — board/timeline/milestones, §3g): typecheck ✅ · lint ✅ · Vitest **306/306** ✅ · build ✅ · Playwright **52/52** ✅ (27 flows + 25 visual — 7 baselines re-recorded, 3 new `board` baselines added, all reviewed by hand).
 - Unit and catalog tests, plus DB integration tests: task flows; the creation core; project, workspace, checklist and auth services; Persian round trip; invitations (hashed token, expiry, email match, single-use), notification dedupe, member lifecycle, custom roles, teams, password reset, sessions, onboarding.
 - E2E fails any test whose pages log a console error, a hydration warning or an uncaught exception.
 
@@ -212,6 +212,22 @@ Product-owner follow-up on the same reference: the top nav stays the primary mod
 
 All 22 visual baselines re-recorded and verified stable; all 21 E2E flows (including a `getByRole('navigation', { name: 'Planner views' })` strict-mode failure caught by the first label fix and resolved by the second); all 178 unit/integration tests; typecheck, lint and build all green after the change.
 
+## 3g. Phase 3 batch 5 — board, timeline, milestones, subtask-reorder carry-over (2026-10-05)
+
+Scope: Batch 5 per `docs/phases/PHASE_3.md` — new Board/Timeline/Milestones project tabs, plus closing the Batch 4 subtask-reorder UI gap. Full design in `docs/HANDOFF.md` §2c.
+
+| Change | Regression check |
+|---|---|
+| `canEditTask`/`canDeleteTask` parameter type narrowed (`TaskEditPolicyFields`) | Grepped every call site (access.ts, service.ts, bulk.ts, queries.ts) — all pass a full `TaskPolicyRecord`, which structurally satisfies the narrower `Pick`; no call site needed changes. Full integration suite re-run, green. |
+| `reorderTask` internals refactored to extract `computeRankInScope` | `orderingScope`'s own decision tree is untouched — `reorderTask` calls the extracted function with the exact same scope it always computed; the new `moveTaskToSection` is the only caller using a different scope. Existing batch-4 reorder tests (top-level, subtask, collision, filtered-subset) re-verified unchanged; new batch-5 tests added for the project+section scope. |
+| `TaskSheet` gained Start date + Milestone fields; `getTaskDetail`'s subtask projection grew | `TaskSheet` is used by every page that opens a task (`/planner/[view]`, `/projects/[projectId]`, and now `/board`, `/timeline`). All four call sites updated to pass the new `milestoneOptions` prop. Visual: `task-sheet` baselines (en-light, fa-light desktop; fa-light mobile) re-recorded and reviewed — only the new fields changed, nothing else shifted. |
+| `/projects/[projectId]` gained a `<ProjectTabs>` row | The pre-existing header/grid markup was left alone (regression risk minimized); only a new row was inserted and the grid's top margin adjusted. Visual: `project` baselines (en-light/dark, fa-light desktop; en-light mobile) re-recorded and reviewed — header and task list unchanged, only the new pill row appended. |
+| `e2e/support/seed.ts` gained one `project_sections` row + reassigned 2 of 5 fixture tasks to it per showcase project | Every other visual baseline (home, planner, projects, team, settings) re-verified **unchanged** by the same `--update-snapshots` run — confirms the seed change doesn't leak into unrelated surfaces (the Tasks tab's own task list is `sectionId`-agnostic, so its visual/E2E coverage was unaffected). |
+
+New dependency: none (reused `@dnd-kit/*`, already added in batch 4). One migration (`MilestoneStatus` enum + `milestones` table + `Task.milestoneId`). Full suite after all changes: typecheck ✅ · lint ✅ · Vitest 306/306 ✅ · Playwright 52/52 ✅ (27 flows + 25 visual) · build ✅.
+
+**Environment note:** the local `prisma dev` daemon's connection-drop flakiness (documented in `docs/HANDOFF.md`'s Known pitfalls) recurred repeatedly during this batch's verification — four restarts needed across one session, the most of any batch so far. Not a code regression; see HANDOFF.md for the exact recovery commands and the newly-confirmed lock-file path.
+
 ## 4. Regression (§90)
 
 Before changing a shared component or service:
@@ -228,6 +244,8 @@ Before changing a shared component or service:
 | `tasks/server/service.ts` | full integration suite + F1 |
 | `access.ts` / `capabilities.ts` | full integration suite + F9 |
 | `lib/time.ts` | unit suite + planner buckets integration |
+| `tasks/domain/ranking.ts` (`rankBetween`/`needsRebalance`/`reseedRun`) | full integration suite — three consumers now (task reorder, `sections.ts` board columns, milestones), batch 5 |
+| `canEditTask`/`canDeleteTask` (`tasks/server/access.ts`) | full integration suite — parameter type narrowed to `TaskEditPolicyFields` (batch 5, additive); every existing caller still passes a full `TaskPolicyRecord` |
 
 ## 5. Visual regression loop (§88)
 

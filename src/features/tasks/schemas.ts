@@ -32,8 +32,11 @@ export const updateTaskSchema = z.object({
   status: statusSchema.optional(),
   dueOn: calendarDateSchema.nullable().optional(),
   dueTime: minutesSchema.nullable().optional(),
+  startOn: calendarDateSchema.nullable().optional(),
+  startTime: minutesSchema.nullable().optional(),
   isSomeday: z.boolean().optional(),
   projectId: z.cuid().nullable().optional(),
+  milestoneId: z.cuid().nullable().optional(),
   estimateMinutes: z.coerce.number().int().min(0).max(100_000).nullable().optional(),
 });
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
@@ -83,6 +86,15 @@ export const createSubtaskSchema = z.object({
 
 export const reorderTaskSchema = z.object({
   taskId: z.cuid(),
+  beforeId: z.cuid().nullable(),
+  afterId: z.cuid().nullable(),
+});
+
+// ───────────────────────── Board (Batch 5) ─────────────────────────
+
+export const moveTaskToSectionSchema = z.object({
+  taskId: z.cuid(),
+  sectionId: z.cuid().nullable(),
   beforeId: z.cuid().nullable(),
   afterId: z.cuid().nullable(),
 });

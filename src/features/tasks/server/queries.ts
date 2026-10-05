@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { fromDbDate, localMinutes, todayIn, toDbDate, type CalendarDate } from "@/lib/time";
 import { db } from "@/server/db";
 import type { Viewer } from "@/server/context";
+import { findVisibleProject } from "@/features/projects/server/access";
 import { listLabels } from "@/features/labels/server/queries";
 import { listMembers } from "@/features/workspace/server/queries";
 import type { PlannerScopeFilter, PlannerView } from "../domain/planner-views";
@@ -29,6 +30,8 @@ const listSelect = {
   status: true,
   priority: true,
   isAllDay: true,
+  startOn: true,
+  startAt: true,
   dueOn: true,
   dueAt: true,
   isSomeday: true,
@@ -41,6 +44,8 @@ const listSelect = {
   createdById: true,
   occurrenceOn: true,
   parentId: true,
+  sectionId: true,
+  milestoneId: true,
   workspace: { select: { id: true, name: true } },
   project: { select: { id: true, name: true, color: true, ownerId: true, visibility: true, members: { select: { userId: true, role: true } } } },
   // Stable preview order (first assigned first) so faces don't reshuffle between renders.
@@ -62,6 +67,7 @@ function toListItem(viewer: Viewer, row: ListRow, now = new Date()): TaskListIte
     status: row.status,
     priority: row.priority,
     isAllDay: row.isAllDay,
+    startOn: row.startOn ? fromDbDate(row.startOn) : null,
     dueOn: row.dueOn ? fromDbDate(row.dueOn) : null,
     dueAt: row.dueAt?.toISOString() ?? null,
     isSomeday: row.isSomeday,
@@ -71,6 +77,8 @@ function toListItem(viewer: Viewer, row: ListRow, now = new Date()): TaskListIte
     version: row.version,
     context: row.workspace ? { kind: "workspace", id: row.workspace.id, name: row.workspace.name } : { kind: "personal" },
     project: row.project ? { id: row.project.id, name: row.project.name, color: row.project.color } : null,
+    sectionId: row.sectionId,
+    milestoneId: row.milestoneId,
     assignees: row.assignees.map((a) => a.user),
     assigneeCount: row._count.assignees,
     subtaskCount: row._count.subtasks,
@@ -172,6 +180,80 @@ export async function getProjectTasks(viewer: Viewer, projectId: string, include
   return rows.map((r) => toListItem(viewer, r));
 }
 
+// ───────────────────────── Board (Batch 5) ─────────────────────────
+
+export interface BoardColumn {
+  /** `null` is the unsectioned column — always rendered first, never sorted by a real `sortOrder`. */
+  id: string | null;
+  name: string;
+  tasks: TaskListItem[];
+}
+
+/** Groups a project's own tasks by `ProjectSection` — the same `visibleTasksWhere`/
+ * `plannerFiltersWhere` fragments every other planner query uses, so a filtered board can never
+ * reveal a task the viewer couldn't otherwise see. No duplicated task storage: columns are a
+ * grouping of the one `Task` table, never a second collection. */
+export async function getBoardData(viewer: Viewer, projectId: string, filters: PlannerFilters = {}) {
+  const project = await findVisibleProject(viewer, projectId);
+  if (!project) return null;
+  const [sections, rows] = await Promise.all([
+    db.projectSection.findMany({ where: { projectId, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+    db.task.findMany({
+      where: { AND: [visibleTasksWhere(viewer), { projectId, parentId: null, archivedAt: null }, ...plannerFiltersWhere(viewer, filters)] },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: listSelect,
+      take: 1000,
+    }),
+  ]);
+  const items = rows.map((r) => toListItem(viewer, r));
+  const bySection = new Map<string | null, TaskListItem[]>();
+  for (const item of items) {
+    const bucket = bySection.get(item.sectionId);
+    if (bucket) bucket.push(item);
+    else bySection.set(item.sectionId, [item]);
+  }
+  const columns: BoardColumn[] = [
+    { id: null, name: "", tasks: bySection.get(null) ?? [] },
+    ...sections.map((s) => ({ id: s.id, name: s.name, tasks: bySection.get(s.id) ?? [] })),
+  ];
+  return { columns };
+}
+
+// ───────────────────────── Timeline (Batch 5) ─────────────────────────
+
+/** A project's own tasks with a start and/or due date, windowed to `[from, to]` — only tasks whose
+ * start→due span overlaps the window at all, so an open-ended project's whole history is never
+ * fetched for one screen's worth of days. Dateless tasks are excluded here (read-first design: a
+ * task that can't be placed on the scale is surfaced by the caller as a separate "no date" count,
+ * not drawn as a zero-width bar at an arbitrary position). */
+export async function getTimelineTasks(viewer: Viewer, projectId: string, window: { from: CalendarDate; to: CalendarDate }, filters: PlannerFilters = {}) {
+  const project = await findVisibleProject(viewer, projectId);
+  if (!project) return null;
+  const from = toDbDate(window.from);
+  const to = toDbDate(window.to);
+  const [rows, noDateCount] = await Promise.all([
+    db.task.findMany({
+      where: {
+        AND: [
+          visibleTasksWhere(viewer),
+          { projectId, parentId: null, archivedAt: null },
+          { OR: [{ startOn: null }, { startOn: { lte: to } }] },
+          { OR: [{ dueOn: null }, { dueOn: { gte: from } }] },
+          { OR: [{ startOn: { not: null } }, { dueOn: { not: null } }] },
+          ...plannerFiltersWhere(viewer, filters),
+        ],
+      },
+      orderBy: [{ startOn: { sort: "asc", nulls: "last" } }, { dueOn: { sort: "asc", nulls: "last" } }],
+      select: listSelect,
+      take: 500,
+    }),
+    db.task.count({
+      where: { AND: [visibleTasksWhere(viewer), { projectId, parentId: null, archivedAt: null, startOn: null, dueOn: null }, ...plannerFiltersWhere(viewer, filters)] },
+    }),
+  ]);
+  return { tasks: rows.map((r) => toListItem(viewer, r)), noDateCount };
+}
+
 function presetOf(series: { frequency: string; interval: number; byWeekday: number[] }): RecurrenceDisplay {
   if (series.interval !== 1) return "custom";
   if (series.frequency === "WEEKLY" && series.byWeekday.length === 5 && [1, 2, 3, 4, 5].every((d) => series.byWeekday.includes(d))) return "weekdays";
@@ -190,7 +272,21 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
       createdAt: true,
       createdBy: { select: { id: true, name: true, avatarUrl: true } },
       series: { select: { frequency: true, interval: true, byWeekday: true, mode: true, endedAt: true } },
-      subtasks: { where: { deletedAt: null }, select: { id: true, title: true, status: true }, orderBy: { sortOrder: "asc" } },
+      subtasks: {
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          scope: true,
+          workspaceId: true,
+          ownerId: true,
+          createdById: true,
+          assignees: { select: { userId: true } },
+          project: { select: { id: true, ownerId: true, visibility: true, members: { select: { userId: true, role: true } } } },
+        },
+        orderBy: { sortOrder: "asc" },
+      },
       checklist: { select: { id: true, title: true, isDone: true }, orderBy: { sortOrder: "asc" } },
       watchers: { select: { userId: true } },
       blockedBy: { select: { blockingTask: { select: { id: true, title: true, status: true } } }, orderBy: { createdAt: "asc" } },
@@ -210,6 +306,7 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
     description: row.description,
     estimateMinutes: row.estimateMinutes,
     dueTime: row.dueAt ? localMinutes(row.dueAt, viewer.user.timezone) : null,
+    startTime: row.startAt ? localMinutes(row.startAt, viewer.user.timezone) : null,
     recurrence: row.series && !row.series.endedAt ? { preset: presetOf(row.series), mode: row.series.mode } : null,
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy,
@@ -217,7 +314,7 @@ export async function getTaskDetail(viewer: Viewer, taskId: string): Promise<Tas
     canAssign: canAssignTask(viewer, policy),
     isWatching: row.watchers.some((w) => w.userId === viewer.user.id),
     watcherCount: row.watchers.length,
-    subtasks: row.subtasks,
+    subtasks: row.subtasks.map((s) => ({ id: s.id, title: s.title, status: s.status, canEdit: canEditTask(viewer, s) })),
     checklistItems: row.checklist,
     activity: activity.map((a) => ({ id: a.id, action: a.action, actor: a.actor, createdAt: a.createdAt.toISOString() })),
     blockedBy,

@@ -59,5 +59,8 @@
   "labelForbidden": "You don’t have permission to manage this label.",
   "commentBodyRequired": "Write something before posting.",
   "commentThreadTooDeep": "Replies can only be one level deep.",
-  "reminderNeedsDueDate": "Give the task a due date before setting a reminder relative to it."
+  "reminderNeedsDueDate": "Give the task a due date before setting a reminder relative to it.",
+  "tooManySections": "This project already has the maximum number of board columns.",
+  "milestoneOtherProject": "A milestone can only be linked to a task in the same project.",
+  "sectionNameRequired": "Give the column a name."
 }

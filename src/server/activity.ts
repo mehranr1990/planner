@@ -7,7 +7,7 @@ import type { Tx } from "@/server/db";
 export interface ActivityInput {
   workspaceId: string | null;
   actorId: string;
-  entityType: "task" | "project" | "workspace" | "membership";
+  entityType: "task" | "project" | "workspace" | "membership" | "milestone";
   entityId: string;
   action: string;
   data?: Prisma.InputJsonValue;

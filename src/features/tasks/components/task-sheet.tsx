@@ -18,10 +18,12 @@ import { cn } from "@/lib/cn";
 import type { CalendarDate } from "@/lib/time";
 import { createLabelAction } from "@/features/labels/server/actions";
 import type { CommentItem } from "@/features/collaboration/types";
+import type { MilestoneOption } from "@/features/milestones/types";
 import type { ReminderDetail } from "@/features/reminders/types";
 import { CommentsSection } from "./comments-section";
 import { DependencyPicker } from "./dependency-picker";
 import { ReminderControl } from "./reminder-control";
+import { SubtaskList } from "./subtask-list";
 import {
   addChecklistItemAction,
   createSubtaskAction,
@@ -64,6 +66,8 @@ const KNOWN_ACTIVITY = new Set([
   "reminder_removed",
   "status_changed",
   "schedule_changed",
+  "section_changed",
+  "milestone_changed",
 ] as const);
 type ActivityKey = typeof KNOWN_ACTIVITY extends Set<infer K> ? K : never;
 
@@ -83,6 +87,7 @@ export function TaskSheet({
   projects,
   members,
   labelOptions,
+  milestoneOptions,
   comments,
   mentionCandidates,
   currentUser,
@@ -96,6 +101,8 @@ export function TaskSheet({
   members: PersonRef[];
   /** Labels usable on this task's own scope (that workspace, or the viewer's personal labels). */
   labelOptions: LabelOption[];
+  /** Milestones of the task's *current* (saved) project; empty for a task with no project or no milestones yet. */
+  milestoneOptions: MilestoneOption[];
   /** This task's comment thread (one level of replies). */
   comments: CommentItem[];
   /** Users @mentionable in this task's comments — already visibility-filtered server-side. */
@@ -154,6 +161,7 @@ export function TaskSheet({
 
   const onSave = (form: FormData) => {
     const dueOn = String(form.get("dueOn") ?? "");
+    const startOn = String(form.get("startOn") ?? "");
     run(
       () =>
         updateTaskAction({
@@ -164,8 +172,11 @@ export function TaskSheet({
           priority: String(form.get("priority")) as TaskPriority,
           dueOn: (dueOn || null) as CalendarDate | null,
           dueTime: dueOn ? fromTimeInput(String(form.get("dueTime") ?? "")) : null,
+          startOn: (startOn || null) as CalendarDate | null,
+          startTime: startOn ? fromTimeInput(String(form.get("startTime") ?? "")) : null,
           isSomeday: form.get("isSomeday") === "on",
           projectId: String(form.get("projectId") ?? "") || null,
+          milestoneId: task.project ? String(form.get("milestoneId") ?? "") || null : undefined,
         }),
       () => setSaved(true),
     );
@@ -218,6 +229,19 @@ export function TaskSheet({
             <Textarea id="task-description" name="description" dir="auto" defaultValue={task.description ?? ""} placeholder={t("sheet.notesPlaceholder")} />
           </Field>
           {/* One column, labels at the start (reference form). Date and time share one label/row. */}
+          <Field label={t("sheet.startDate")} htmlFor="task-start" hint={t("sheet.timeHint")}>
+            <div className="flex gap-3">
+              <div className="min-w-0 flex-1">
+                <Input id="task-start" name="startOn" type="date" defaultValue={task.startOn ?? ""} />
+              </div>
+              <div className="w-36 shrink-0">
+                <label htmlFor="task-start-time" className="sr-only">
+                  {t("sheet.time")}
+                </label>
+                <Input id="task-start-time" name="startTime" type="time" defaultValue={toTimeInput(task.startTime)} />
+              </div>
+            </div>
+          </Field>
           <Field label={t("sheet.dueDate")} htmlFor="task-due" hint={t("sheet.timeHint")}>
             {/* Sizes live on wrappers: Input is w-full by design. */}
             <div className="flex gap-3">
@@ -251,6 +275,18 @@ export function TaskSheet({
               ))}
             </Select>
           </Field>
+          {task.project && milestoneOptions.length > 0 && (
+            <Field label={t("sheet.milestone")} htmlFor="task-milestone">
+              <Select id="task-milestone" name="milestoneId" defaultValue={task.milestoneId ?? ""}>
+                <option value="">{t("sheet.noMilestone")}</option>
+                {milestoneOptions.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <label className="flex items-center gap-3 px-1 text-sm">
             <input type="checkbox" name="isSomeday" defaultChecked={task.isSomeday} className="size-4 accent-[var(--surface-active)]" />
             {t("sheet.someday")}
@@ -353,31 +389,7 @@ export function TaskSheet({
         <h3 id="subtasks-heading" className="mb-2 px-1 text-[12.5px] text-foreground-muted">
           {t("sheet.subtasks")}
         </h3>
-        <ul className="flex flex-col gap-1">
-          {task.subtasks.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => openTask(s.id)}
-                className="flex w-full items-center gap-3 rounded-[14px] px-3 py-2 text-start text-sm hover:bg-surface-elevated"
-              >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "inline-flex size-4 shrink-0 items-center justify-center rounded-full ring-[1.5px]",
-                    s.status === "DONE" ? "bg-surface-active ring-surface-active" : "ring-border-strong",
-                  )}
-                >
-                  {s.status === "DONE" && <Check className="size-2.5 text-foreground-on-active" strokeWidth={3} />}
-                </span>
-                <span dir="auto" className={cn("min-w-0 flex-1 truncate", s.status === "DONE" && "text-foreground-subtle line-through")}>
-                  {s.title}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        {task.subtasks.length === 0 && <p className="px-1 text-[13px] text-foreground-subtle">{t("sheet.subtasksNone")}</p>}
+        <SubtaskList subtasks={task.subtasks} onOpen={openTask} />
         {!readOnly && (
           <form
             onSubmit={(e) => {

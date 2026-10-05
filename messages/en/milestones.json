@@ -1,0 +1,28 @@
+{
+  "heading": "Milestones",
+  "new": "New milestone",
+  "emptyTitle": "No milestones yet",
+  "emptyHint": "Milestones mark the dated targets this project is working toward.",
+  "create": {
+    "title": "New milestone",
+    "titleLabel": "Title",
+    "description": "Description",
+    "dueOn": "Due date",
+    "submit": "Create milestone"
+  },
+  "edit": {
+    "title": "Edit milestone",
+    "submit": "Save changes",
+    "delete": "Delete milestone"
+  },
+  "progress": "{done, number} of {total, number} tasks done",
+  "noTasks": "No tasks linked yet",
+  "overdue": "Overdue",
+  "completed": "Completed",
+  "complete": "Mark complete",
+  "reopen": "Reopen",
+  "confirmDelete": {
+    "title": "Delete this milestone?",
+    "reason": "Linked tasks stay, but lose this milestone."
+  }
+}

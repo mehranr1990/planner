@@ -59,5 +59,12 @@
     "archive": "Archive",
     "restore": "Restore",
     "membersStrip": "Project members"
+  },
+  "tabs": {
+    "nav": "Project views",
+    "tasks": "Tasks",
+    "board": "Board",
+    "timeline": "Timeline",
+    "milestones": "Milestones"
   }
 }

@@ -69,7 +69,8 @@ Every entry point (planner, project, calendar, chat, meeting, forms, capture, au
 | Concern | Service (current / planned) | Status |
 |---|---|---|
 | Task creation | **`features/tasks/server/create.ts` → `createTask(tx, NewTaskInput)`**. It is the only code that inserts task rows. Quick Add (parse → normalize → core) and recurrence (next occurrence → normalize → core) both use it. See "Task creation core" below | ✅ Phase 2a |
-| Task mutation | `updateTask`, `setTaskCompletion`, `setTaskRecurrence`, `softDeleteTask`, `restoreTask`, `addDependency`, checklist | ✅ |
+| Task mutation | `updateTask`, `setTaskCompletion`, `setTaskRecurrence`, `softDeleteTask`, `restoreTask`, `addDependency`, checklist, `moveTaskToSection` (board) | ✅ |
+| Manual ordering / ranking | `features/tasks/domain/ranking.ts` (`rankBetween`/`needsRebalance`/`reseedRun`) — pure fractional-index math, DB-free. Three consumers, each with its own thin bounded-rebalance wrapper over the table it orders (not a shared wrapper function, since each wraps a different Prisma model): `tasks/server/service.ts`'s `computeRankInScope` (task reorder + board-card move), `projects/server/sections.ts` (board columns), `milestones/server/service.ts` (milestone ordering) | ✅ Phase 3 batch 4 (tasks), batch 5 (sections, milestones) |
 | Project / workspace / account / auth mutations | `features/{projects,workspace,account,auth}/server/service.ts` | ✅ Phase 2a |
 | Action boundary | `src/server/run-action.ts` (`runAction`, `invalidInput`): revalidate + localize `DomainError` codes; `src/server/errors.ts` (`DomainError`) | ✅ Phase 2a |
 | Permissions | `server/permissions/capabilities.ts` + `features/*/server/access.ts` | ✅ |

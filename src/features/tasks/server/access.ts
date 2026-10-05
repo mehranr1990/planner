@@ -82,12 +82,18 @@ export async function findVisibleTasks(viewer: Viewer, taskIds: string[]): Promi
   return db.task.findMany({ where: { AND: [{ id: { in: taskIds } }, visibleTasksWhere(viewer)] }, select: policySelect });
 }
 
-function projectRole(task: TaskPolicyRecord, userId: string) {
+/** The minimal shape `canEditTask`/`canDeleteTask` actually need — lets callers that only have a
+ * partial projection (e.g. a subtask row fetched alongside its parent) compute edit rights without
+ * loading a full `TaskPolicyRecord`. Every existing caller already passes a full record, which
+ * trivially satisfies this narrower shape. */
+export type TaskEditPolicyFields = Pick<TaskPolicyRecord, "scope" | "ownerId" | "workspaceId" | "createdById" | "assignees" | "project">;
+
+function projectRole(task: TaskEditPolicyFields, userId: string) {
   return task.project?.members.find((m) => m.userId === userId)?.role ?? null;
 }
 
 /** Edit covers title, schedule, priority, status, completion, description, checklist. */
-export function canEditTask(viewer: Viewer, task: TaskPolicyRecord): boolean {
+export function canEditTask(viewer: Viewer, task: TaskEditPolicyFields): boolean {
   const me = viewer.user.id;
   if (task.scope === "PERSONAL") return task.ownerId === me || task.assignees.some((a) => a.userId === me);
   const actor = task.workspaceId ? actorIn(viewer, task.workspaceId) : null;
@@ -98,7 +104,7 @@ export function canEditTask(viewer: Viewer, task: TaskPolicyRecord): boolean {
   return role === "LEAD" || role === "EDITOR";
 }
 
-export function canDeleteTask(viewer: Viewer, task: TaskPolicyRecord): boolean {
+export function canDeleteTask(viewer: Viewer, task: TaskEditPolicyFields): boolean {
   const me = viewer.user.id;
   if (task.scope === "PERSONAL") return task.ownerId === me;
   const actor = task.workspaceId ? actorIn(viewer, task.workspaceId) : null;

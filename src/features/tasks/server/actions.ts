@@ -16,6 +16,7 @@ import {
   createSubtaskSchema,
   createTaskSchema,
   dependencySchema,
+  moveTaskToSectionSchema,
   recurrenceSchema,
   reorderTaskSchema,
   setAssigneesSchema,
@@ -161,6 +162,13 @@ export async function reorderTaskAction(raw: z.input<typeof reorderTaskSchema>) 
   if (!parsed.success) return invalid(parsed.error);
   const viewer = await getViewer();
   return run(() => service.reorderTask(viewer, parsed.data.taskId, { beforeId: parsed.data.beforeId, afterId: parsed.data.afterId }));
+}
+
+export async function moveTaskToSectionAction(raw: z.input<typeof moveTaskToSectionSchema>) {
+  const parsed = moveTaskToSectionSchema.safeParse(raw);
+  if (!parsed.success) return invalid(parsed.error);
+  const viewer = await getViewer();
+  return run(() => service.moveTaskToSection(viewer, parsed.data.taskId, { sectionId: parsed.data.sectionId, beforeId: parsed.data.beforeId, afterId: parsed.data.afterId }));
 }
 
 export async function bulkSetCompletionAction(raw: z.input<typeof bulkSetCompletionSchema>) {

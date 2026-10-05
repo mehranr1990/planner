@@ -109,22 +109,23 @@ Remaining: transfer-ownership confirm overlay (→ Phase 3, no acceptance criter
 - **States:** A (archived banner), P (read-only), conflict banner (exists), upload error.
 
 ### 2.5 Projects (Phase 3)
-- **Routes:** `/projects/[id]` with tabs **Overview · Tasks · Board · Timeline · Calendar · Files · Docs · Chat · Activity** (Files/Docs/Chat appear once Phases 10/7 ship).
+- **Routes:** `/projects/[projectId]` (**Tasks**, default — no separate "Overview" tab shipped; the health/progress/members summary lives in this tab's own sidebar card instead, per `ProjectHeader`/`ProjectTabs`, batch 5) · `/projects/[projectId]/board` · `/projects/[projectId]/timeline` · `/projects/[projectId]/milestones` — all four ✅ (batch 5). Still planned, unbuilt: **Calendar** (Phase 4) · **Files** (Phase 10, needs attachments first) · **Docs** (Phase 10) · **Chat** (Phase 7) · a dedicated **Activity** tab (events are recorded — `entityType: "project"`/`"milestone"` activity rows exist — but nothing surfaces them in the UI yet, same gap `Project.status_changed` already had before this batch).
 - **Screens:**
-  - Overview: health, progress, milestones, members, recent activity.
-  - Board: columns by status or section.
-  - Timeline: Gantt-like with dependency connectors.
+  - Tasks: list + sidebar summary card (status/health chips, completion ring, open/overdue metrics) — this is what §2.5's original "Overview" sketch became.
+  - Board ✅: columns = `ProjectSection` rows, "No column" group always first and non-draggable; compact cards (title, due date, priority, assignee cluster, up to 2 labels); drag within/between columns, drag to reorder columns; "+ Add column" affordance.
+  - Timeline ✅: read-first (no drag/resize — PD below), date-scale grid windowed to 21 days, Prev/Next/Today navigation, today-column highlight. **Deviation from this section's original sketch: no dependency connectors** — Timeline shows task start/due spans only; see `docs/HANDOFF.md` §2c for the "read-first over a fragile Gantt clone" reasoning.
+  - Milestones ✅: list with derived progress bar + overdue/completed chips, create/edit dialog, complete/reopen toggle, delete (soft-archive, unlinks tasks rather than deleting them).
 - **Overlays:**
   - Project settings sheet (name, icon, colour, dates, visibility, priority, tags)
   - Members sheet
-  - Milestone dialog
-  - Section rename/delete context menu
+  - Milestone dialog ✅ (create and edit share one component, `MilestoneDialog`)
+  - Section rename/delete context menu — 🟡 archive ✅, a dedicated rename/delete *menu* UI not built (the board's column header has no actions yet beyond the drag handle; `renameSectionAction`/`archiveSectionAction` exist server-side)
   - Archive confirm
-- **States:** E per tab, A (read-only, restore), P (NF≡P), PD (timeline omits hidden dependencies).
+- **States:** E per tab, A (read-only, restore), P (NF≡P), PD (**Timeline**: no drag/resize at all rather than "omits hidden dependencies" — read-first by design, not because dependencies are hidden).
 - **Mobile:**
-  - Tabs become a scrollable pill row.
-  - Board scrolls horizontally, one column per viewport.
-  - Timeline becomes an agenda list with a dependency chip.
+  - Tabs become a scrollable pill row ✅.
+  - Board scrolls horizontally, one column per viewport ✅ (reviewed in the visual baseline).
+  - Timeline: ✅ same date-scale grid with horizontal scroll — 🟡 **deviation:** not yet the agenda-list-with-dependency-chip fallback this section originally sketched; revisit if the horizontal-scroll grid proves hard to use on small screens in practice.
 
 ### 2.6 Calendar (Phase 4)
 - **Routes:** `/calendar/day | week | month | agenda` with `?date=`.

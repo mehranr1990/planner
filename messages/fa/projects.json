@@ -59,5 +59,12 @@
     "archive": "بایگانی",
     "restore": "بازگردانی",
     "membersStrip": "اعضای پروژه"
+  },
+  "tabs": {
+    "nav": "نماهای پروژه",
+    "tasks": "کارها",
+    "board": "تخته",
+    "timeline": "جدول زمانی",
+    "milestones": "نقاط عطف"
   }
 }

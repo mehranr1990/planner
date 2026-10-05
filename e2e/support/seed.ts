@@ -70,6 +70,13 @@ export async function seed(databaseUrl: string): Promise<void> {
         [s.projectId, s.workspaceId, s.userId, s.projectName],
       );
       await db.query(`INSERT INTO project_members (project_id, user_id, role, added_at) VALUES ($1, $2, 'LEAD', now() - interval '1 day')`, [s.projectId, s.userId]);
+      // One board column (Batch 5) so the Board surface shows more than just the unsectioned
+      // group — t3/t4 move into it below, after tasks are inserted.
+      await db.query(`INSERT INTO project_sections (id, project_id, name, sort_order) VALUES ($1, $2, $3, 1024)`, [
+        `${s.projectId}_doing`,
+        s.projectId,
+        s.locale === "fa" ? "در حال انجام" : "Doing",
+      ]);
 
       for (const [i, m] of TEAMMATES.entries()) {
         await db.query(`INSERT INTO memberships (id, workspace_id, user_id, role, status, joined_at) VALUES ($1, $2, $3, 'MEMBER', 'ACTIVE', now() + ($4 || ' seconds')::interval)`, [
@@ -84,10 +91,11 @@ export async function seed(databaseUrl: string): Promise<void> {
 
       for (const t of PROJECT_TASKS) {
         const id = `${s.projectId}_${t.key}`;
+        const sectionId = t.key === "t3" || t.key === "t4" ? `${s.projectId}_doing` : null;
         await db.query(
-          `INSERT INTO tasks (id, scope, workspace_id, owner_id, created_by_id, project_id, title, status, priority, is_all_day, due_on, sort_order, created_at, updated_at)
-           VALUES ($1, 'WORKSPACE', $2, $3, $3, $4, $5, 'TODO', $6, true, $7, $8, now(), now())`,
-          [id, s.workspaceId, s.userId, s.projectId, s.locale === "fa" ? t.fa : t.en, t.priority, due(t.due), order++],
+          `INSERT INTO tasks (id, scope, workspace_id, owner_id, created_by_id, project_id, section_id, title, status, priority, is_all_day, due_on, sort_order, created_at, updated_at)
+           VALUES ($1, 'WORKSPACE', $2, $3, $3, $4, $5, $6, 'TODO', $7, true, $8, $9, now(), now())`,
+          [id, s.workspaceId, s.userId, s.projectId, sectionId, s.locale === "fa" ? t.fa : t.en, t.priority, due(t.due), order++],
         );
         for (const a of t.assignees) {
           const userId = a === -1 ? s.userId : TEAMMATES[a]!.id;

@@ -116,13 +116,14 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
   const task = await loadEditable(viewer, input.taskId);
   const current = await db.task.findUniqueOrThrow({
     where: { id: task.id },
-    select: { status: true, dueOn: true, dueAt: true, isAllDay: true, timezone: true, projectId: true },
+    select: { status: true, dueOn: true, dueAt: true, startOn: true, startAt: true, isAllDay: true, timezone: true, projectId: true, milestoneId: true },
   });
   if (input.status === "DONE") throw new DomainError("useComplete"); // completion has side effects (recurrence)
   const data: Prisma.TaskUncheckedUpdateManyInput = {};
   const fieldChanges: string[] = [];
   let statusChange: { from: string; to: string } | null = null;
   let scheduleChanged = false;
+  let milestoneChanged: { from: string | null; to: string | null } | null = null;
 
   if (input.title !== undefined) {
     data.title = input.title;
@@ -146,19 +147,28 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
     statusChange = { from: current.status, to: input.status };
   }
 
-  if (input.dueOn !== undefined || input.dueTime !== undefined) {
+  if (input.dueOn !== undefined || input.dueTime !== undefined || input.startOn !== undefined || input.startTime !== undefined) {
     const tz = viewer.user.timezone;
     const dueOn = input.dueOn !== undefined ? input.dueOn : current.dueOn ? fromDbDate(current.dueOn) : null;
-    const keepTime = input.dueTime === undefined && !current.isAllDay && current.dueAt;
-    const dueTime = input.dueTime !== undefined ? input.dueTime : keepTime ? localMinutes(current.dueAt!, current.timezone ?? tz) : null;
+    const keepDueTime = input.dueTime === undefined && !current.isAllDay && current.dueAt;
+    const dueTime = input.dueTime !== undefined ? input.dueTime : keepDueTime ? localMinutes(current.dueAt!, current.timezone ?? tz) : null;
+    const startOn = input.startOn !== undefined ? input.startOn : current.startOn ? fromDbDate(current.startOn) : null;
+    const keepStartTime = input.startTime === undefined && !current.isAllDay && current.startAt;
+    const startTime = input.startTime !== undefined ? input.startTime : keepStartTime ? localMinutes(current.startAt!, current.timezone ?? tz) : null;
     try {
-      const s = normalizeSchedule({ dueOn, dueTime: dueOn ? dueTime : null, timezone: current.timezone ?? tz });
+      const s = normalizeSchedule({ dueOn, dueTime: dueOn ? dueTime : null, startOn, startTime: startOn ? startTime : null, timezone: current.timezone ?? tz });
       data.isAllDay = s.isAllDay;
       data.timezone = s.timezone;
       data.dueOn = s.dueOn ? toDbDate(s.dueOn) : null;
       data.dueAt = s.dueAt;
+      data.startOn = s.startOn ? toDbDate(s.startOn) : null;
+      data.startAt = s.startAt;
       if (s.dueOn) data.isSomeday = false; // a dated task is no longer parked
-      scheduleChanged = (data.dueOn as Date | null)?.getTime() !== current.dueOn?.getTime() || (data.dueAt as Date | null)?.getTime() !== current.dueAt?.getTime();
+      scheduleChanged =
+        (data.dueOn as Date | null)?.getTime() !== current.dueOn?.getTime() ||
+        (data.dueAt as Date | null)?.getTime() !== current.dueAt?.getTime() ||
+        (data.startOn as Date | null)?.getTime() !== current.startOn?.getTime() ||
+        (data.startAt as Date | null)?.getTime() !== current.startAt?.getTime();
     } catch (e) {
       if (e instanceof ScheduleError) throw new DomainError(e.code);
       throw e;
@@ -174,7 +184,19 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
     }
     data.projectId = input.projectId;
     data.sectionId = null;
+    data.milestoneId = null; // a milestone belongs to one project; moving across projects clears the link
     fieldChanges.push("project");
+  }
+
+  if (input.milestoneId !== undefined && input.milestoneId !== (data.milestoneId !== undefined ? data.milestoneId : current.milestoneId)) {
+    const finalProjectId = input.projectId !== undefined ? input.projectId : current.projectId;
+    if (input.milestoneId) {
+      if (!finalProjectId) throw new DomainError("milestoneOtherProject");
+      const milestone = await db.milestone.findFirst({ where: { id: input.milestoneId, projectId: finalProjectId, archivedAt: null }, select: { id: true } });
+      if (!milestone) throw new DomainError("milestoneOtherProject");
+    }
+    milestoneChanged = { from: current.milestoneId, to: input.milestoneId };
+    data.milestoneId = input.milestoneId;
   }
 
   const newVersion = input.expectedVersion + 1;
@@ -210,6 +232,12 @@ export async function updateTask(viewer: Viewer, input: UpdateTaskInput) {
         deepLink: `/planner/all?task=${task.id}`,
         dedupeKeyFor: (userId) => `task:${task.id}:v${newVersion}:schedule:${userId}`,
       });
+    }
+    if (milestoneChanged) {
+      // Linking/unlinking a milestone is activity-worthy but not watcher-notable — same editorial
+      // line as a project move (§8's policy table): it reorganizes the task, it doesn't change what
+      // needs doing or when, so it doesn't warrant a notification of its own.
+      await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "milestone_changed", data: milestoneChanged });
     }
   });
 }
@@ -642,37 +670,34 @@ async function fetchNeighborhood(tx: Tx, scope: Prisma.TaskWhereInput, excludeId
 }
 
 /**
- * Moves one task to sit between `beforeId` and `afterId` (either may be null at a list edge).
- * Entirely server-side, inside one transaction, per the approved adjustment: the client only ever
- * supplies the two visible neighbor ids from its own optimistic reorder, never a computed rank. If
- * the neighbors' gap is too small to insert into cleanly (including the common case where several
- * siblings still share the Float column's default of 0), only the bounded neighborhood around the
- * drop point is reseeded with fresh spaced values first — never the whole collection.
+ * Computes a new `sortOrder` for a task relocating to sit between `beforeId` and `afterId` within
+ * `scope`'s sibling bucket — entirely server-side, inside the caller's transaction, per the
+ * approved Batch 4 adjustment: the client only ever supplies the two visible neighbor ids, never a
+ * computed rank. If the neighbors' gap is too small to insert into cleanly (including the common
+ * case where several siblings still share the Float column's default of 0), only the bounded
+ * neighborhood around the drop point is reseeded with fresh spaced values first — never the whole
+ * collection. Shared by top-level/subtask reorder (`orderingScope`-derived scope, below) and
+ * Board's cross-section move (`board.ts`'s `{ projectId, sectionId }`-derived scope) — one ranking
+ * strategy, two ways of picking the sibling bucket it operates over.
  */
-async function reorderWithinScope(viewer: Viewer, taskId: string, beforeId: string | null, afterId: string | null) {
-  const task = await loadEditable(viewer, taskId);
-  await db.$transaction(async (tx) => {
-    const scope = orderingScope(task);
-    const [before, after] = await Promise.all([
-      beforeId ? tx.task.findFirst({ where: { AND: [scope, { id: beforeId }] }, select: siblingSelect }) : null,
-      afterId ? tx.task.findFirst({ where: { AND: [scope, { id: afterId }] }, select: siblingSelect }) : null,
-    ]);
-    let beforeRank = before?.sortOrder ?? null;
-    let afterRank = after?.sortOrder ?? null;
+export async function computeRankInScope(tx: Tx, scope: Prisma.TaskWhereInput, excludeId: string, beforeId: string | null, afterId: string | null): Promise<number> {
+  const [before, after] = await Promise.all([
+    beforeId ? tx.task.findFirst({ where: { AND: [scope, { id: beforeId }] }, select: siblingSelect }) : null,
+    afterId ? tx.task.findFirst({ where: { AND: [scope, { id: afterId }] }, select: siblingSelect }) : null,
+  ]);
+  let beforeRank = before?.sortOrder ?? null;
+  let afterRank = after?.sortOrder ?? null;
 
-    if (needsRebalance(beforeRank, afterRank)) {
-      const neighborhood = await fetchNeighborhood(tx, scope, task.id, beforeId, afterId);
-      const seeded = reseedRun(neighborhood.length);
-      await Promise.all(neighborhood.map((row, i) => tx.task.update({ where: { id: row.id }, data: { sortOrder: seeded[i] } })));
-      const dropIndex = afterId ? neighborhood.findIndex((r) => r.id === afterId) : neighborhood.length;
-      beforeRank = dropIndex > 0 ? seeded[dropIndex - 1] : null;
-      afterRank = dropIndex >= 0 && dropIndex < neighborhood.length ? seeded[dropIndex] : null;
-    }
+  if (needsRebalance(beforeRank, afterRank)) {
+    const neighborhood = await fetchNeighborhood(tx, scope, excludeId, beforeId, afterId);
+    const seeded = reseedRun(neighborhood.length);
+    await Promise.all(neighborhood.map((row, i) => tx.task.update({ where: { id: row.id }, data: { sortOrder: seeded[i] } })));
+    const dropIndex = afterId ? neighborhood.findIndex((r) => r.id === afterId) : neighborhood.length;
+    beforeRank = dropIndex > 0 ? seeded[dropIndex - 1] : null;
+    afterRank = dropIndex >= 0 && dropIndex < neighborhood.length ? seeded[dropIndex] : null;
+  }
 
-    const sortOrder = rankBetween(beforeRank, afterRank);
-    await guardedUpdate(tx, task.id, task.version, { sortOrder });
-    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "reordered" });
-  });
+  return rankBetween(beforeRank, afterRank);
 }
 
 /**
@@ -682,7 +707,53 @@ async function reorderWithinScope(viewer: Viewer, taskId: string, beforeId: stri
  * task itself, so one function covers both). No notification: reordering isn't watcher-notable.
  */
 export async function reorderTask(viewer: Viewer, taskId: string, position: { beforeId: string | null; afterId: string | null }) {
-  await reorderWithinScope(viewer, taskId, position.beforeId, position.afterId);
+  const task = await loadEditable(viewer, taskId);
+  await db.$transaction(async (tx) => {
+    const scope = orderingScope(task);
+    const sortOrder = await computeRankInScope(tx, scope, task.id, position.beforeId, position.afterId);
+    await guardedUpdate(tx, task.id, task.version, { sortOrder });
+    await recordActivity(tx, { workspaceId: task.workspaceId, actorId: viewer.user.id, entityType: "task", entityId: task.id, action: "reordered" });
+  });
+}
+
+// ───────────────────────── Board (Batch 5) ─────────────────────────
+
+/**
+ * Moves a task to a board column (`ProjectSection`, `null` = the unsectioned column) and/or
+ * reorders it within that column — one mutation, since dropping a card always lands it at a
+ * specific position in its destination column, same as a same-column reorder. Scoped to
+ * `{ projectId, sectionId }` via `computeRankInScope`, reusing the identical bounded-rebalance
+ * ranking strategy `reorderTask` uses for its own (unrelated) sibling buckets. Board columns are
+ * purely an organizational grouping (Q-DM-5) — moving a card never changes `Task.status`; the
+ * checkbox/complete action remains the only way to mark a task done.
+ */
+export async function moveTaskToSection(viewer: Viewer, taskId: string, target: { sectionId: string | null; beforeId: string | null; afterId: string | null }) {
+  const task = await loadEditable(viewer, taskId);
+  const projectId = task.project?.id ?? null;
+  if (!projectId) throw new DomainError(NOT_FOUND); // Board moves only apply to tasks already in a project
+
+  if (target.sectionId) {
+    const section = await db.projectSection.findFirst({ where: { id: target.sectionId, projectId, archivedAt: null }, select: { id: true } });
+    if (!section) throw new DomainError(NOT_FOUND); // cross-project / archived / bogus section id
+  }
+
+  const current = await db.task.findUniqueOrThrow({ where: { id: task.id }, select: { sectionId: true } });
+
+  await db.$transaction(async (tx) => {
+    const scope: Prisma.TaskWhereInput = { projectId, sectionId: target.sectionId, parentId: null };
+    const sortOrder = await computeRankInScope(tx, scope, task.id, target.beforeId, target.afterId);
+    await guardedUpdate(tx, task.id, task.version, { sectionId: target.sectionId, sortOrder });
+    if (current.sectionId !== target.sectionId) {
+      await recordActivity(tx, {
+        workspaceId: task.workspaceId,
+        actorId: viewer.user.id,
+        entityType: "task",
+        entityId: task.id,
+        action: "section_changed",
+        data: { from: current.sectionId, to: target.sectionId },
+      });
+    }
+  });
 }
 
 // ───────────────────────── Labels ─────────────────────────

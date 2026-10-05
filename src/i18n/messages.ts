@@ -1,8 +1,10 @@
 import enAuth from "../../messages/en/auth.json";
+import enBoard from "../../messages/en/board.json";
 import enCommon from "../../messages/en/common.json";
 import enErrors from "../../messages/en/errors.json";
 import enHome from "../../messages/en/home.json";
 import enInvitations from "../../messages/en/invitations.json";
+import enMilestones from "../../messages/en/milestones.json";
 import enNavigation from "../../messages/en/navigation.json";
 import enNotifications from "../../messages/en/notifications.json";
 import enOnboarding from "../../messages/en/onboarding.json";
@@ -11,12 +13,15 @@ import enProjects from "../../messages/en/projects.json";
 import enSecurity from "../../messages/en/security.json";
 import enSettings from "../../messages/en/settings.json";
 import enTasks from "../../messages/en/tasks.json";
+import enTimeline from "../../messages/en/timeline.json";
 import enWorkspace from "../../messages/en/workspace.json";
 import faAuth from "../../messages/fa/auth.json";
+import faBoard from "../../messages/fa/board.json";
 import faCommon from "../../messages/fa/common.json";
 import faErrors from "../../messages/fa/errors.json";
 import faHome from "../../messages/fa/home.json";
 import faInvitations from "../../messages/fa/invitations.json";
+import faMilestones from "../../messages/fa/milestones.json";
 import faNavigation from "../../messages/fa/navigation.json";
 import faNotifications from "../../messages/fa/notifications.json";
 import faOnboarding from "../../messages/fa/onboarding.json";
@@ -25,6 +30,7 @@ import faProjects from "../../messages/fa/projects.json";
 import faSecurity from "../../messages/fa/security.json";
 import faSettings from "../../messages/fa/settings.json";
 import faTasks from "../../messages/fa/tasks.json";
+import faTimeline from "../../messages/fa/timeline.json";
 import faWorkspace from "../../messages/fa/workspace.json";
 import type { AppLocale } from "./config";
 
@@ -45,6 +51,9 @@ const en = {
   onboarding: enOnboarding,
   security: enSecurity,
   notifications: enNotifications,
+  board: enBoard,
+  timeline: enTimeline,
+  milestones: enMilestones,
 };
 
 export type Messages = typeof en;
@@ -65,6 +74,9 @@ const fa = {
   onboarding: faOnboarding,
   security: faSecurity,
   notifications: faNotifications,
+  board: faBoard,
+  timeline: faTimeline,
+  milestones: faMilestones,
 } satisfies Messages;
 
 const catalogs: Record<AppLocale, Messages> = { en, fa };

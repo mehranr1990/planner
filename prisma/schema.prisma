@@ -77,6 +77,11 @@ enum ProjectRole {
   VIEWER
 }
 
+enum MilestoneStatus {
+  OPEN
+  COMPLETED
+}
+
 enum TaskStatus {
   TODO
   IN_PROGRESS
@@ -156,6 +161,7 @@ model User {
   ownedProjects           Project[]                @relation("ProjectOwner")
   createdProjects         Project[]                @relation("ProjectCreator")
   projectMemberships      ProjectMember[]
+  createdMilestones       Milestone[]
   ownedTasks              Task[]                   @relation("TaskOwner")
   createdTasks            Task[]                   @relation("TaskCreator")
   completedTasks          Task[]                   @relation("TaskCompleter")
@@ -281,9 +287,9 @@ model Membership {
   joinedAt      DateTime         @default(now()) @map("joined_at") @db.Timestamptz(3)
   deactivatedAt DateTime?        @map("deactivated_at") @db.Timestamptz(3)
 
-  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  customRole WorkspaceRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  workspace             Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  customRole            WorkspaceRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   acceptedViaInvitation Invitation?
 
   @@unique([workspaceId, userId])
@@ -319,23 +325,23 @@ model TeamMember {
 }
 
 model Invitation {
-  id           String           @id @default(cuid())
-  workspaceId  String           @map("workspace_id")
-  email        String
-  role         SystemRole       @default(MEMBER)
-  isExternal   Boolean          @default(false) @map("is_external")
-  tokenHash    String           @unique @map("token_hash")
-  status       InvitationStatus @default(PENDING)
-  invitedById  String           @map("invited_by_id")
-  acceptedById String?          @map("accepted_by_id")
-  acceptedMembershipId String?  @unique @map("accepted_membership_id")
-  expiresAt    DateTime         @map("expires_at") @db.Timestamptz(3)
-  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  respondedAt  DateTime?        @map("responded_at") @db.Timestamptz(3)
+  id                   String           @id @default(cuid())
+  workspaceId          String           @map("workspace_id")
+  email                String
+  role                 SystemRole       @default(MEMBER)
+  isExternal           Boolean          @default(false) @map("is_external")
+  tokenHash            String           @unique @map("token_hash")
+  status               InvitationStatus @default(PENDING)
+  invitedById          String           @map("invited_by_id")
+  acceptedById         String?          @map("accepted_by_id")
+  acceptedMembershipId String?          @unique @map("accepted_membership_id")
+  expiresAt            DateTime         @map("expires_at") @db.Timestamptz(3)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  respondedAt          DateTime?        @map("responded_at") @db.Timestamptz(3)
 
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  invitedBy  User        @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
-  acceptedBy User?       @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+  workspace          Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy          User        @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy         User?       @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
   acceptedMembership Membership? @relation(fields: [acceptedMembershipId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, status])
@@ -388,14 +394,15 @@ model Project {
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner     User             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  createdBy User             @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  area      Area?            @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  members   ProjectMember[]
-  sections  ProjectSection[]
-  tasks     Task[]
-  comments  Comment[]
+  workspace  Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner      User             @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy  User             @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  area       Area?            @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  members    ProjectMember[]
+  sections   ProjectSection[]
+  tasks      Task[]
+  comments   Comment[]
+  milestones Milestone[]
 
   @@index([workspaceId, status])
   @@index([ownerId, scope])
@@ -430,6 +437,34 @@ model ProjectSection {
   @@map("project_sections")
 }
 
+/// A dated target within a project (§13/§15: roadmaps, portfolios). `status` is the only stored
+/// state — "overdue" is derived (OPEN + dueOn in the past), the same pattern `Task.isOverdue`
+/// already uses, rather than a third stored value that could drift out of sync with the date.
+/// Progress is always derived from associated tasks (done / total), never stored, so it can never
+/// go stale relative to the tasks it summarizes.
+model Milestone {
+  id          String          @id @default(cuid())
+  projectId   String          @map("project_id")
+  title       String
+  description String?
+  dueOn       DateTime?       @map("due_on") @db.Date
+  status      MilestoneStatus @default(OPEN)
+  completedAt DateTime?       @map("completed_at") @db.Timestamptz(3)
+  sortOrder   Float           @default(0) @map("sort_order")
+  createdById String          @map("created_by_id")
+  archivedAt  DateTime?       @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  tasks     Task[]
+
+  @@index([projectId, sortOrder])
+  @@index([projectId, dueOn])
+  @@map("milestones")
+}
+
 // ───────────────────────── Task engine ──────────────────────────
 
 /// Scheduling rule (see src/features/tasks/domain/schedule.ts):
@@ -444,6 +479,7 @@ model Task {
   createdById      String     @map("created_by_id")
   projectId        String?    @map("project_id")
   sectionId        String?    @map("section_id")
+  milestoneId      String?    @map("milestone_id")
   areaId           String?    @map("area_id")
   parentId         String?    @map("parent_id")
   title            String
@@ -476,6 +512,7 @@ model Task {
   completedBy User?             @relation("TaskCompleter", fields: [completedById], references: [id], onDelete: SetNull)
   project     Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
   section     ProjectSection?   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  milestone   Milestone?        @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   area        Area?             @relation(fields: [areaId], references: [id], onDelete: SetNull)
   parent      Task?             @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
   subtasks    Task[]            @relation("Subtasks")
@@ -497,6 +534,7 @@ model Task {
   @@index([workspaceId, sortOrder]) // manual ordering: inbox/someday/all (Batch 4)
   @@index([projectId, sectionId, sortOrder])
   @@index([parentId])
+  @@index([milestoneId])
   @@map("tasks")
 }
 

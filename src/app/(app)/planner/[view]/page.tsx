@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { listProjectOptions } from "@/features/projects/server/queries";
 import { getMentionCandidates, listTaskComments } from "@/features/collaboration/server/queries";
 import { listLabels } from "@/features/labels/server/queries";
+import { listMilestoneOptions } from "@/features/milestones/server/queries";
 import { getMyReminder } from "@/features/reminders/server/queries";
 import { FilterBar } from "@/features/tasks/components/filter-bar";
 import { QuickAdd } from "@/features/tasks/components/quick-add";
@@ -67,12 +68,13 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
     filterLabelScope ? listLabels(viewer, filterLabelScope) : Promise.resolve([]),
     filter.kind === "workspace" ? listMembers(viewer, filter.workspaceId) : Promise.resolve(null),
   ]);
-  const [members, labelOptions, comments, mentionCandidates, reminder] = await Promise.all([
+  const [members, labelOptions, comments, mentionCandidates, reminder, milestoneOptions] = await Promise.all([
     getAssignableMembers(viewer, detail),
     getTaskLabelOptions(viewer, detail),
     detail ? listTaskComments(viewer, detail.id) : [],
     detail ? getMentionCandidates(viewer, detail.id) : [],
     detail ? getMyReminder(viewer, detail.id) : null,
+    listMilestoneOptions(viewer, detail?.project?.id ?? null),
   ]);
 
   const scope = scopeParam(filter);
@@ -229,6 +231,7 @@ export default async function PlannerPage({ params, searchParams }: PageProps<"/
           projects={projectOptions}
           members={members}
           labelOptions={labelOptions}
+          milestoneOptions={milestoneOptions}
           comments={comments}
           mentionCandidates={mentionCandidates}
           currentUser={{ id: viewer.user.id, name: viewer.user.name, avatarUrl: viewer.user.avatarUrl }}

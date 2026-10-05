@@ -11,8 +11,10 @@ import { getFormat } from "@/i18n/get-format";
 import { todayIn } from "@/lib/time";
 import { HEALTH_TONE } from "@/features/projects/components/project-card";
 import { ProjectControls } from "@/features/projects/components/project-controls";
+import { ProjectTabs } from "@/features/projects/components/project-tabs";
 import { getProject, listProjectOptions } from "@/features/projects/server/queries";
 import { getMentionCandidates, listTaskComments } from "@/features/collaboration/server/queries";
+import { listMilestoneOptions } from "@/features/milestones/server/queries";
 import { getMyReminder } from "@/features/reminders/server/queries";
 import { QuickAdd } from "@/features/tasks/components/quick-add";
 import { TaskList } from "@/features/tasks/components/task-list";
@@ -45,12 +47,13 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
     taskId ? getTaskDetail(viewer, taskId) : null,
     taskId ? listProjectOptions(viewer) : [],
   ]);
-  const [members, labelOptions, comments, mentionCandidates, reminder] = await Promise.all([
+  const [members, labelOptions, comments, mentionCandidates, reminder, milestoneOptions] = await Promise.all([
     getAssignableMembers(viewer, detail),
     getTaskLabelOptions(viewer, detail),
     detail ? listTaskComments(viewer, detail.id) : [],
     detail ? getMentionCandidates(viewer, detail.id) : [],
     detail ? getMyReminder(viewer, detail.id) : null,
+    listMilestoneOptions(viewer, detail?.project?.id ?? null),
   ]);
   const today = todayIn(viewer.user.timezone);
   const total = project.openTasks + project.doneTasks;
@@ -70,8 +73,9 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
         <PeopleCluster people={project.members} total={project.memberCount} max={6} size="sm" variant="strip" label={t("detail.membersStrip")} className="order-last sm:order-none" />
         {project.canEdit && <ProjectControls projectId={project.id} status={project.status} health={project.health} archived={project.archived} />}
       </div>
+      <ProjectTabs projectId={project.id} active="tasks" />
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Panel aria-labelledby="project-tasks-heading">
           <SectionHeader
             title={<span id="project-tasks-heading">{t("detail.tasks")}</span>}
@@ -141,6 +145,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<"/
           projects={projects}
           members={members}
           labelOptions={labelOptions}
+          milestoneOptions={milestoneOptions}
           comments={comments}
           mentionCandidates={mentionCandidates}
           currentUser={{ id: viewer.user.id, name: viewer.user.name, avatarUrl: viewer.user.avatarUrl }}

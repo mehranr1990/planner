@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { getViewer } from "@/server/context";
 import { invalidInput, runAction } from "@/server/run-action";
+import * as sections from "./sections";
 import * as service from "./service";
 
 // validate → viewer → service → revalidate → localized result. Rules live in ./service.
@@ -46,4 +47,44 @@ export async function setProjectArchivedAction(raw: z.input<typeof archiveSchema
   if (!parsed.success) return invalidInput(parsed.error);
   const viewer = await getViewer();
   return runAction("projects", () => service.setProjectArchived(viewer, parsed.data.projectId, parsed.data.archived));
+}
+
+// ───────────────────────── Board columns (Batch 5) ─────────────────────────
+
+const sectionNameSchema = z.string().trim().min(1, "sectionNameRequired").max(120);
+
+const createSectionSchema = z.object({ projectId: z.cuid(), name: sectionNameSchema });
+
+export async function createSectionAction(raw: z.input<typeof createSectionSchema>): Promise<ActionResult<{ id: string }>> {
+  const parsed = createSectionSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("projects", () => sections.createSection(viewer, parsed.data.projectId, parsed.data.name));
+}
+
+const renameSectionSchema = z.object({ sectionId: z.cuid(), name: sectionNameSchema });
+
+export async function renameSectionAction(raw: z.input<typeof renameSectionSchema>): Promise<ActionResult> {
+  const parsed = renameSectionSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("projects", () => sections.renameSection(viewer, parsed.data.sectionId, parsed.data.name));
+}
+
+const sectionIdSchema = z.object({ sectionId: z.cuid() });
+
+export async function archiveSectionAction(raw: z.input<typeof sectionIdSchema>): Promise<ActionResult> {
+  const parsed = sectionIdSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("projects", () => sections.archiveSection(viewer, parsed.data.sectionId));
+}
+
+const reorderSectionSchema = z.object({ sectionId: z.cuid(), beforeId: z.cuid().nullable(), afterId: z.cuid().nullable() });
+
+export async function reorderSectionAction(raw: z.input<typeof reorderSectionSchema>): Promise<ActionResult> {
+  const parsed = reorderSectionSchema.safeParse(raw);
+  if (!parsed.success) return invalidInput(parsed.error);
+  const viewer = await getViewer();
+  return runAction("projects", () => sections.reorderSection(viewer, parsed.data.sectionId, { beforeId: parsed.data.beforeId, afterId: parsed.data.afterId }));
 }

@@ -6,17 +6,17 @@ import { expect, settle, signInShowcase, test } from "./support/test";
 // language × theme. Only time-dependent text is masked ([data-volatile], the native date input).
 // Update intentionally with `npm run test:visual -- --update-snapshots` and review the diff.
 
-type Surface = "home" | "planner" | "task-sheet" | "projects" | "project" | "team" | "settings";
+type Surface = "home" | "planner" | "task-sheet" | "projects" | "project" | "board" | "team" | "settings";
 
 const MATRIX: Record<"visual-desktop" | "visual-mobile", Partial<Record<ShowcaseKey, Surface[]>>> = {
   "visual-desktop": {
-    "en-light": ["home", "planner", "task-sheet", "projects", "project", "team", "settings"],
+    "en-light": ["home", "planner", "task-sheet", "projects", "project", "board", "team", "settings"],
     "en-dark": ["home", "project"],
-    "fa-light": ["planner", "task-sheet", "project", "settings"],
+    "fa-light": ["planner", "task-sheet", "project", "board", "settings"],
     "fa-dark": ["home", "planner"],
   },
   "visual-mobile": {
-    "en-light": ["home", "planner", "project"],
+    "en-light": ["home", "planner", "project", "board"],
     "en-dark": ["home"],
     "fa-light": ["projects", "task-sheet"],
     "fa-dark": ["planner"],
@@ -33,6 +33,7 @@ async function open(page: Page, key: ShowcaseKey, surface: Surface) {
     "task-sheet": "/planner/today",
     projects: "/projects",
     project: `/projects/${s.projectId}`,
+    board: `/projects/${s.projectId}/board`,
     team: "/team",
     settings: "/settings/profile",
   }[surface];
