@@ -62,6 +62,7 @@
   },
   "tabs": {
     "nav": "Project views",
+    "navSidebar": "Project sections",
     "tasks": "Tasks",
     "board": "Board",
     "timeline": "Timeline",

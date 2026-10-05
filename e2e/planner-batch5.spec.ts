@@ -71,7 +71,9 @@ test.describe("Batch 5: subtask reorder, board, milestones", () => {
 
   test("dragging a card from the unsectioned column into a new board column persists after reload", async ({ page }) => {
     await createPersonalProject(page, "Board Project");
-    await page.getByRole("link", { name: "Board" }).click();
+    // Batch 5 added a matching SubNav rail icon link (icon-only, same accessible name) alongside
+    // the existing pill tab, so the pill nav (visible text) needs disambiguating by its own label.
+    await page.getByRole("navigation", { name: "Project views" }).getByRole("link", { name: "Board" }).click();
     await page.waitForURL(/\/board$/);
 
     await addTask(page, "Card to move");
@@ -95,7 +97,7 @@ test.describe("Batch 5: subtask reorder, board, milestones", () => {
 
   test("creating, completing and deleting a milestone", async ({ page }) => {
     await createPersonalProject(page, "Milestone Project");
-    await page.getByRole("link", { name: "Milestones" }).click();
+    await page.getByRole("navigation", { name: "Project views" }).getByRole("link", { name: "Milestones" }).click();
     await page.waitForURL(/\/milestones$/);
 
     await page.getByRole("button", { name: "New milestone" }).click();
