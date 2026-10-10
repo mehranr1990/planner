@@ -1,4 +1,4 @@
-import { expect, signUp, test } from "./support/test";
+import { expect, serverActionDone, signUp, test } from "./support/test";
 import type { Page } from "@playwright/test";
 
 // Phase 3 Batch 5: the subtask-reorder UI carry-over from Batch 4, plus Board (column create +
@@ -61,10 +61,12 @@ test.describe("Batch 5: subtask reorder, board, milestones", () => {
     const from = await gripTwo.boundingBox();
     const to = await gripOne.boundingBox();
     if (!from || !to) throw new Error("subtask drag handles not found");
+    const persisted = serverActionDone(page);
     await dragHandle(page, from, to);
 
     const subtaskList = page.locator("ul").filter({ has: page.getByRole("button", { name: "Sub one", exact: true }) }).first();
     await expect(subtaskList.getByRole("button", { name: /^Sub (one|two)$/, exact: true }).first()).toHaveText("Sub two");
+    await persisted;
     await page.reload();
     await expect(subtaskList.getByRole("button", { name: /^Sub (one|two)$/, exact: true }).first()).toHaveText("Sub two");
   });
@@ -88,9 +90,11 @@ test.describe("Batch 5: subtask reorder, board, milestones", () => {
     const from = await card.boundingBox();
     const to = await doingColumn.boundingBox();
     if (!from || !to) throw new Error("board drag targets not found");
+    const persisted = serverActionDone(page);
     await dragHandle(page, from, to);
 
     await expect(doingColumn.getByText("Card to move")).toBeVisible();
+    await persisted;
     await page.reload();
     await expect(page.getByRole("region", { name: "Doing" }).getByText("Card to move")).toBeVisible();
   });

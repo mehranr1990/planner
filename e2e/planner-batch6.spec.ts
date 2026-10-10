@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { expect, flowEmail, signUp, test } from "./support/test";
+import { expect, flowEmail, serverActionDone, signUp, test } from "./support/test";
 import type { Page } from "@playwright/test";
 
 // Phase 3 Batch 6 (final batch): task attachments, avatar upload, workspace ownership transfer,
@@ -86,10 +86,12 @@ test.describe("Batch 6: attachments, avatar, ownership transfer, board carry-ove
     const [download] = await Promise.all([page.waitForEvent("download"), sheet.getByRole("link", { name: "Download “notes.txt”" }).click()]);
     expect(download.suggestedFilename()).toBe("notes.txt");
 
+    const removed = serverActionDone(page);
     await sheet.getByRole("button", { name: "Remove “notes.txt”" }).click();
     await expect(sheet.getByRole("link", { name: "notes.txt" })).toHaveCount(0);
     await expect(sheet.getByText("No files yet")).toBeVisible();
 
+    await removed;
     await page.reload();
     await expect(page.getByRole("dialog", { name: "Task with a file" }).getByText("No files yet")).toBeVisible();
   });
@@ -117,9 +119,11 @@ test.describe("Batch 6: attachments, avatar, ownership transfer, board carry-ove
     await page.locator('input[type="file"]').setInputFiles({ name: "avatar.png", mimeType: "image/png", buffer: PNG_1X1 });
     await expect(profilePanel.locator('img[src^="/api/avatars/"]')).toBeVisible();
 
+    const removed = serverActionDone(page);
     await page.getByRole("button", { name: "Remove" }).click();
     await expect(profilePanel.locator('img[src^="/api/avatars/"]')).toHaveCount(0);
 
+    await removed;
     await page.reload();
     await expect(profilePanel.locator('img[src^="/api/avatars/"]')).toHaveCount(0);
   });
