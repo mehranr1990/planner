@@ -1,4 +1,4 @@
-import { expect, signUp, test } from "./support/test";
+import { expect, serverActionDone, signUp, test } from "./support/test";
 
 const VIEWS = [
   ["inbox", "Inbox"],
@@ -49,7 +49,9 @@ test.describe("planner and tasks", () => {
 
     await page.goto("/planner/inbox");
     await page.getByLabel("New task").fill("Learn piano someday");
+    const created = serverActionDone(page);
     await page.getByRole("button", { name: "Add task" }).click();
+    await created;
     await page.goto("/planner/someday");
     await expect(page.getByRole("link", { name: "Learn piano" })).toBeVisible();
   });

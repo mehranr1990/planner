@@ -1,4 +1,4 @@
-import { expect, signUp, test } from "./support/test";
+import { expect, serverActionDone, signUp, test } from "./support/test";
 import type { Page } from "@playwright/test";
 
 // Batch 4: advanced filters, bulk actions, drag & drop. Exercised against a fresh personal
@@ -89,9 +89,11 @@ test.describe("planner: filters, bulk actions, drag & drop", () => {
     await page.waitForTimeout(100);
     await page.mouse.move(to.x + to.width / 2, to.y + 2, { steps: 10 });
     await page.waitForTimeout(100);
+    const persisted = serverActionDone(page);
     await page.mouse.up();
 
     await expect(list.getByRole("link", { name: /^Order/ }).first()).toHaveText("Order second");
+    await persisted;
     await page.reload();
     await expect(list.getByRole("link", { name: /^Order/ }).first()).toHaveText("Order second"); // persisted
   });

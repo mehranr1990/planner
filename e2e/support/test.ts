@@ -45,6 +45,15 @@ export const test = base.extend<{
 
 export const htmlAttrs = (page: Page) => page.evaluate(() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir }));
 
+/**
+ * Resolves once the next server action round-trip completes. Start it BEFORE the triggering
+ * click/drag, and await it before a reload/goto — navigating away while the action is in flight
+ * aborts it ("destination stream closed early"), which a slower remote database makes likely.
+ */
+export function serverActionDone(page: Page) {
+  return page.waitForResponse((res) => res.request().method() === "POST" && res.request().headers()["next-action"] !== undefined);
+}
+
 export function flowEmail(label: string) {
   return `${label}-${randomUUID().slice(0, 8)}@${FLOW_DOMAIN}`;
 }

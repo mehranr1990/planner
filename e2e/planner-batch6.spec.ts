@@ -42,7 +42,11 @@ function fakeCuid(): string {
  * owner's own user id so the caller can assert the pre-/post-transfer role swap precisely.
  */
 async function addWorkspaceMember(ownerEmail: string, name: string): Promise<{ ownerId: string; workspaceId: string }> {
-  process.loadEnvFile(".env");
+  try {
+    process.loadEnvFile(".env");
+  } catch {
+    // CI provides the environment directly.
+  }
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required for this E2E helper — see README → End-to-end tests.");
   const db = new pg.Client({ connectionString: url });
