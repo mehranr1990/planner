@@ -20,5 +20,9 @@ export default defineConfig({
     environment: "node",
     // Integration suites share one database; run files sequentially.
     fileParallelism: false,
+    // Integration tests run many sequential round-trips against a remote Neon branch in CI;
+    // vitest's 5s default is too tight for the longer multi-step cases there.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
